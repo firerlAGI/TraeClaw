@@ -1,0 +1,18 @@
+{
+  "name": "trae-cdp-http-bridge",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Local HTTP bridge for Trae driven through Chrome DevTools Protocol and DOM automation.",
+  "scripts": {
+    "start": "node src/server.js",
+    "start:trae": "node scripts/start-trae.js",
+    "start:gateway": "node scripts/start-gateway.js",
+    "inspect:trae": "node scripts/inspect-trae.js",
+    "test": "node src/cdp/discovery.test.js && node src/cdp/dom-driver.test.js && node src/http/gateway.test.js",
+    "lint": "node --check src/server.js && node --check src/cdp/errors.js && node --check src/cdp/browser-dom.js && node --check src/cdp/discovery.js && node --check src/cdp/discovery.test.js && node --check src/cdp/client.js && node --check src/cdp/dom-driver.js && node --check src/cdp/dom-driver.test.js && node --check src/cdp/mock-driver.js && node --check src/http/chat-ui.js && node --check src/http/gateway.js && node --check src/http/gateway.test.js && node --check scripts/start-trae.js && node --check scripts/start-gateway.js && node --check scripts/inspect-trae.js",
+    "typecheck": "node --check src/server.js && node --check src/cdp/errors.js && node --check src/cdp/browser-dom.js && node --check src/cdp/discovery.js && node --check src/cdp/discovery.test.js && node --check src/cdp/client.js && node --check src/cdp/dom-driver.js && node --check src/cdp/dom-driver.test.js && node --check src/cdp/mock-driver.js && node --check src/http/chat-ui.js && node --check src/http/gateway.js && node --check src/http/gateway.test.js && node --check scripts/start-trae.js && node --check scripts/start-gateway.js && node --check scripts/inspect-trae.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
