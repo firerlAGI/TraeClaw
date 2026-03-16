@@ -38,7 +38,7 @@ Trae may wrap your requested output with its own assistant style or task framing
 
 ## Can I use TraeAPI without OpenClaw?
 
-Yes. You can call the HTTP API directly or use the built-in `/chat` page.
+Yes, but that is no longer the primary product path. The intended path is OpenClaw calling Trae through the native plugin.
 
 ## What usually breaks after a Trae update?
 

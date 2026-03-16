@@ -2,9 +2,9 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-TraeAPI is a local HTTP bridge for the Trae desktop app.
+TraeAPI is a local bridge that lets OpenClaw use the Trae desktop app as an IDE tool.
 
-It connects to the Trae Electron window through the Chrome DevTools Protocol, drives the rendered UI with DOM selectors, and exposes a stable local API that other tools can call.
+It connects to the Trae Electron window through the Chrome DevTools Protocol, drives the rendered UI with DOM selectors, and exposes a local service that the OpenClaw plugin can call.
 
 This is a local desktop bridge, not an official Trae API.
 
@@ -16,13 +16,27 @@ This is a local desktop bridge, not an official Trae API.
 - [Changelog](CHANGELOG.md)
 - [Security Policy](SECURITY.md)
 
+## Primary Audience
+
+This repository is primarily for OpenClaw users.
+
+The intended flow is:
+
+`OpenClaw -> trae_delegate -> TraeAPI -> Trae desktop app`
+
+Direct HTTP API usage is still supported, but it is a secondary path for advanced users and debugging.
+
 ## Quick Start
 
 ### Windows One-Click Start
 
-If you are on Windows, the intended path is simple:
+If you are an OpenClaw user on Windows, the intended path is:
 
-1. Double-click [start-traeapi.cmd](start-traeapi.cmd)
+1. Run `npm install`
+2. Double-click [start-traeapi.cmd](start-traeapi.cmd)
+3. Load the plugin from [integrations/openclaw-trae-plugin](integrations/openclaw-trae-plugin/README.md)
+4. Restart OpenClaw Gateway
+5. Ask OpenClaw to use `trae_delegate`
 
 On the first run, TraeAPI will:
 
@@ -33,7 +47,7 @@ On the first run, TraeAPI will:
 - automatically launch a dedicated Trae window if the existing one is not automation-ready
 - seed that dedicated Trae profile from your existing local Trae data when possible so you do not have to log in again
 - start the local gateway
-- open the built-in chat page in your browser
+- open the built-in chat page in your browser for local diagnostics
 
 If Trae cannot be auto-detected, the launcher will ask for the Trae executable path once and save it into `.env`.
 
@@ -43,21 +57,22 @@ You can run the same flow from a terminal:
 npm run quickstart
 ```
 
-After startup succeeds, use:
+After startup succeeds, the main user path is OpenClaw. Useful local endpoints are:
 
-- Chat page: `http://127.0.0.1:8787/chat`
-- API base: `http://127.0.0.1:8787`
+- Ready check: `http://127.0.0.1:8787/ready`
+- Chat page for diagnostics: `http://127.0.0.1:8787/chat`
 
-## What Users Need to Know
+## What OpenClaw Users Need to Know
 
 - TraeAPI runs locally on your machine.
 - Trae must support `--remote-debugging-port=<port>`.
 - TraeAPI will open a project folder in Trae. If you did not set one, it will create a default local workspace automatically.
 - If your current Trae window is unsuitable for automation, quickstart will switch to a dedicated Trae profile automatically so the user does not have to manage ports or Chromium profiles manually.
+- The main success condition is that OpenClaw can call `trae_status` and `trae_delegate`.
 
-## Public API
+## Advanced API
 
-Stable local endpoints:
+Stable local endpoints for advanced users and debugging:
 
 - `GET /health`
 - `GET /ready`
@@ -77,7 +92,7 @@ OpenAPI files are available at runtime and in the repository:
 - [docs/openapi.json](docs/openapi.json)
 - [docs/openapi.yaml](docs/openapi.yaml)
 
-## Minimal Usage
+## Advanced Direct Usage
 
 Blocking request:
 

@@ -2,9 +2,9 @@
 
 [English](README.md) | [中文](README.zh-CN.md)
 
-TraeAPI 是一个给 Trae 桌面版使用的本地 HTTP 桥接服务。
+TraeAPI 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本地桥接服务。
 
-它通过 Chrome DevTools Protocol 连接 Trae 的 Electron 渲染窗口，用 DOM selector 驱动界面，并把能力暴露成稳定的本地 API，供其他工具调用。
+它通过 Chrome DevTools Protocol 连接 Trae 的 Electron 渲染窗口，用 DOM selector 驱动界面，并向 OpenClaw 插件暴露本地可调用服务。
 
 这是一层本地桌面桥接，不是官方 Trae API。
 
@@ -16,13 +16,27 @@ TraeAPI 是一个给 Trae 桌面版使用的本地 HTTP 桥接服务。
 - [更新记录](CHANGELOG.md)
 - [安全说明](SECURITY.md)
 
+## 目标用户
+
+这个仓库现在主要面向 OpenClaw 用户。
+
+推荐链路是：
+
+`OpenClaw -> trae_delegate -> TraeAPI -> Trae 桌面端`
+
+如果你只是想直接调本地 HTTP API，也仍然支持，但那不是主要用户路径。
+
 ## 快速开始
 
 ### Windows 一键启动
 
-如果你在 Windows 上使用，推荐直接这样启动：
+如果你是 OpenClaw 用户，推荐直接按这个顺序走：
 
-1. 双击 [start-traeapi.cmd](start-traeapi.cmd)
+1. 执行 `npm install`
+2. 双击 [start-traeapi.cmd](start-traeapi.cmd)
+3. 按 [integrations/openclaw-trae-plugin](integrations/openclaw-trae-plugin/README.md) 加载 OpenClaw 原生插件
+4. 重启 OpenClaw Gateway
+5. 在 OpenClaw 里让它调用 `trae_delegate`
 
 首次启动时，TraeAPI 会自动完成这些事情：
 
@@ -33,7 +47,7 @@ TraeAPI 是一个给 Trae 桌面版使用的本地 HTTP 桥接服务。
 - 如果当前窗口不适合自动化，就自动拉起一个专用 Trae 窗口
 - 条件允许时，会先把你现有本地 Trae 的登录态和关键会话存储复制到这个专用窗口对应的 profile，尽量避免再次登录
 - 启动本地网关服务
-- 自动打开内置聊天页面
+- 自动打开内置聊天页面，方便本地排障
 
 如果没有自动找到 Trae，启动器只会问你一次 `Trae.exe` 路径，并把结果保存到 `.env`。
 
@@ -43,21 +57,22 @@ TraeAPI 是一个给 Trae 桌面版使用的本地 HTTP 桥接服务。
 npm run quickstart
 ```
 
-启动成功后，常用入口是：
+启动成功后，主路径是回到 OpenClaw 中使用。常用本地入口主要是：
 
-- 聊天页面：`http://127.0.0.1:8787/chat`
-- API 基地址：`http://127.0.0.1:8787`
+- 就绪检查：`http://127.0.0.1:8787/ready`
+- 排障聊天页：`http://127.0.0.1:8787/chat`
 
-## 用户只需要知道的事
+## OpenClaw 用户只需要知道的事
 
 - TraeAPI 运行在你的本机上。
 - Trae 需要支持 `--remote-debugging-port=<port>`。
 - TraeAPI 会让 Trae 打开一个项目目录；如果你没配，它会自动创建默认工作目录。
 - 如果当前 Trae 窗口不适合自动化，quickstart 会自动切到一个独立 profile 的 Trae 窗口，用户不需要自己理解端口或 Chromium profile。
+- 真正的成功标准，是 OpenClaw 能顺利调用 `trae_status` 和 `trae_delegate`。
 
-## 对外 API
+## 高级 API
 
-当前稳定暴露的本地接口：
+如果你是高级用户，或者只是为了排障，也可以直接调用本地 HTTP API。当前稳定暴露的本地接口：
 
 - `GET /health`
 - `GET /ready`
@@ -77,7 +92,7 @@ npm run quickstart
 - [docs/openapi.json](docs/openapi.json)
 - [docs/openapi.yaml](docs/openapi.yaml)
 
-## 最小调用示例
+## 高级直连示例
 
 阻塞调用：
 
