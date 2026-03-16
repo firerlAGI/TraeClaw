@@ -1,6 +1,6 @@
 {
   "name": "trae-cdp-http-bridge",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "Local HTTP bridge for Trae driven through Chrome DevTools Protocol and DOM automation.",
   "scripts": {

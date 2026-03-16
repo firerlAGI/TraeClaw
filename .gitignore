@@ -1,2 +1,6 @@
 .runtime/
 debug.log
+.env
+.env.*
+!.env.example
+*.log
