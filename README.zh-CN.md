@@ -8,6 +8,12 @@ TraeAPI 是一个给 Trae 桌面版使用的本地 HTTP 桥接服务。
 
 这是一层本地桌面桥接，不是官方 Trae API。
 
+## 附加文档
+
+- [安装指南](docs/install.zh-CN.md)
+- [常见问题](docs/faq.zh-CN.md)
+- [OpenClaw 集成](docs/openclaw-integration.zh-CN.md)
+
 ## 快速开始
 
 ### Windows 一键启动

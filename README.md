@@ -8,6 +8,12 @@ It connects to the Trae Electron window through the Chrome DevTools Protocol, dr
 
 This is a local desktop bridge, not an official Trae API.
 
+## Additional Docs
+
+- [Install Guide](docs/install.md)
+- [FAQ](docs/faq.md)
+- [OpenClaw Integration](docs/openclaw-integration.md)
+
 ## Quick Start
 
 ### Windows One-Click Start
