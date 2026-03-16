@@ -1,5 +1,7 @@
 # TraeAPI
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 TraeAPI is a local HTTP bridge for Trae desktop.
 
 It attaches to the Trae Electron window through the Chrome DevTools Protocol, drives the rendered UI with DOM selectors, and exposes a stable local API that other tools can call.
