@@ -10,7 +10,7 @@ For most OpenClaw users on Windows, the intended setup is:
 2. Clone or download this repository.
 3. Run `npm install`.
 4. Double-click [start-traeapi.cmd](../start-traeapi.cmd).
-5. Load the plugin from [../integrations/openclaw-trae-plugin](../integrations/openclaw-trae-plugin/README.md) in OpenClaw.
+5. Load the plugin from [../integrations/openclaw-trae-plugin](../integrations/openclaw-trae-plugin/README.en.md) in OpenClaw.
 6. Restart OpenClaw Gateway.
 7. Ask OpenClaw to call `trae_status` or `trae_delegate`.
 
@@ -80,7 +80,7 @@ Use the full plugin walkthrough here:
 
 ## Related Docs
 
-- [Plugin README](../integrations/openclaw-trae-plugin/README.md)
+- [Plugin README](../integrations/openclaw-trae-plugin/README.en.md)
 - [FAQ](faq.md)
 - [API Reference](api.md)
 - [OpenAPI JSON](openapi.json)

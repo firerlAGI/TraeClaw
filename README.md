@@ -1,253 +1,74 @@
 # TraeAPI
 
-[English](README.md) | [中文](README.zh-CN.md)
+[中文](README.md) | [English](README.en.md)
 
-TraeAPI is a local bridge that lets OpenClaw use the Trae desktop app as an IDE tool.
+TraeAPI 是一个让 OpenClaw 调用 Trae 桌面端作为 IDE 工具的本地桥接服务。
 
-It connects to the Trae Electron window through the Chrome DevTools Protocol, drives the rendered UI with DOM selectors, and exposes a local service that the OpenClaw plugin can call.
+目标链路：
 
-This is a local desktop bridge, not an official Trae API.
+`OpenClaw -> trae_delegate -> TraeAPI -> Trae 桌面端`
 
-## Additional Docs
+这不是模型接入层。OpenClaw 继续使用自己的 LLM，TraeAPI 只负责把 IDE 能力桥接给 OpenClaw。
 
-- [Install Guide](docs/install.md)
-- [FAQ](docs/faq.md)
-- [OpenClaw Integration](docs/openclaw-integration.md)
-- [Changelog](CHANGELOG.md)
-- [Security Policy](SECURITY.md)
+## 适用人群
 
-## Primary Audience
+这个仓库现在主要面向中文 OpenClaw 用户。
 
-This repository is primarily for OpenClaw users.
+如果你只是想直接调用本地 HTTP API，也仍然支持，但那不是主要产品路径。
 
-The intended flow is:
+## 最短上手路径
 
-`OpenClaw -> trae_delegate -> TraeAPI -> Trae desktop app`
+1. 安装 `Node.js 22+`
+2. 执行 `npm install`
+3. 双击 [start-traeapi.cmd](start-traeapi.cmd)
+4. 在 OpenClaw 里加载 [openclaw-trae-plugin](integrations/openclaw-trae-plugin/README.md)
+5. 重启 OpenClaw Gateway
+6. 在 OpenClaw 里调用 `trae_status` 或 `trae_delegate`
 
-Direct HTTP API usage is still supported, but it is a secondary path for advanced users and debugging.
+首次启动时，TraeAPI 会尽量自动完成这些事：
 
-## Quick Start
+- 自动生成 `.env`
+- 自动识别 `Trae.exe`
+- 自动创建默认项目目录
+- 优先附着已有 Trae 窗口
+- 不可自动化时自动拉起独立 Trae 窗口
+- 启动本地网关
+- 自动打开排障聊天页
 
-### Windows One-Click Start
+## 用户最关心的两个地址
 
-If you are an OpenClaw user on Windows, the intended path is:
+- 就绪检查：`http://127.0.0.1:8787/ready`
+- 排障聊天页：`http://127.0.0.1:8787/chat`
 
-1. Run `npm install`
-2. Double-click [start-traeapi.cmd](start-traeapi.cmd)
-3. Load the plugin from [integrations/openclaw-trae-plugin](integrations/openclaw-trae-plugin/README.md)
-4. Restart OpenClaw Gateway
-5. Ask OpenClaw to use `trae_delegate`
+真正的成功标准不是“网关启动了”，而是 OpenClaw 能顺利调用：
 
-On the first run, TraeAPI will:
+- `trae_status`
+- `trae_delegate`
 
-- create `.env` from [.env.example](.env.example) if needed
-- auto-detect `Trae.exe` when possible
-- create a local workspace folder if you did not configure one yet
-- try to attach to your existing Trae window first
-- automatically launch a dedicated Trae window if the existing one is not automation-ready
-- seed that dedicated Trae profile from your existing local Trae data when possible so you do not have to log in again
-- start the local gateway
-- open the built-in chat page in your browser for local diagnostics
+## 文档入口
 
-If Trae cannot be auto-detected, the launcher will ask for the Trae executable path once and save it into `.env`.
+- [OpenClaw 用户安装指南](docs/install.zh-CN.md)
+- [OpenClaw 集成说明](docs/openclaw-integration.zh-CN.md)
+- [常见问题](docs/faq.zh-CN.md)
+- [插件说明](integrations/openclaw-trae-plugin/README.md)
+- [更新记录](CHANGELOG.md)
+- [安全说明](SECURITY.md)
 
-You can run the same flow from a terminal:
+## 高级用法
 
-```bash
-npm run quickstart
-```
-
-After startup succeeds, the main user path is OpenClaw. Useful local endpoints are:
-
-- Ready check: `http://127.0.0.1:8787/ready`
-- Chat page for diagnostics: `http://127.0.0.1:8787/chat`
-
-## What OpenClaw Users Need to Know
-
-- TraeAPI runs locally on your machine.
-- Trae must support `--remote-debugging-port=<port>`.
-- TraeAPI will open a project folder in Trae. If you did not set one, it will create a default local workspace automatically.
-- If your current Trae window is unsuitable for automation, quickstart will switch to a dedicated Trae profile automatically so the user does not have to manage ports or Chromium profiles manually.
-- The main success condition is that OpenClaw can call `trae_status` and `trae_delegate`.
-
-## Advanced API
-
-Stable local endpoints for advanced users and debugging:
+如果你是高级用户，或者只是为了排障，也可以直接调用本地 HTTP API：
 
 - `GET /health`
 - `GET /ready`
-- `GET /openapi.json`
-- `GET /openapi.yaml`
 - `POST /v1/chat`
 - `POST /v1/chat/stream`
 - `POST /v1/sessions`
-- `GET /v1/sessions/{sessionId}`
 - `POST /v1/sessions/{sessionId}/messages`
-- `POST /v1/sessions/{sessionId}/messages/stream`
 
-Full request and response details are in [docs/api.md](docs/api.md).
+完整接口见 [docs/api.md](docs/api.md)。
 
-OpenAPI files are available at runtime and in the repository:
+## 说明
 
-- [docs/openapi.json](docs/openapi.json)
-- [docs/openapi.yaml](docs/openapi.yaml)
-
-## Advanced Direct Usage
-
-Blocking request:
-
-```bash
-curl -X POST http://127.0.0.1:8787/v1/chat ^
-  -H "content-type: application/json" ^
-  -d "{\"content\":\"Reply with exactly: OK\"}"
-```
-
-Streaming request:
-
-```bash
-curl -N -X POST http://127.0.0.1:8787/v1/chat/stream ^
-  -H "accept: text/event-stream" ^
-  -H "content-type: application/json" ^
-  -d "{\"content\":\"Explain what you are doing step by step.\"}"
-```
-
-Examples:
-
-- Python: [examples/python/client.py](examples/python/client.py)
-- Node.js: [examples/node/client.mjs](examples/node/client.mjs)
-
-## OpenClaw Integration
-
-If you want OpenClaw to use Trae as an IDE tool, use the native plugin in [integrations/openclaw-trae-plugin](integrations/openclaw-trae-plugin/README.md).
-
-That plugin exposes `trae_status` and `trae_delegate` inside OpenClaw, so OpenClaw can keep using its own LLM while delegating IDE work to Trae through TraeAPI.
-
-If your OpenClaw config uses explicit tool policy, enable the plugin additively with `tools.alsoAllow` or `agents.list[].tools.alsoAllow`, not a plugin-only `tools.allow`.
-
-For a step-by-step user guide, see [docs/openclaw-integration.md](docs/openclaw-integration.md).
-
-## Manual Setup
-
-If you do not want the one-click launcher:
-
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-2. Copy [.env.example](.env.example) to `.env` and set at least:
-
-- `TRAE_BIN`
-- `TRAE_PROJECT_PATH`
-- `TRAE_COMPOSER_SELECTORS`
-- `TRAE_SEND_BUTTON_SELECTORS`
-- `TRAE_RESPONSE_SELECTORS`
-
-3. Start Trae:
-
-```bash
-npm run start:trae
-```
-
-4. Start the gateway:
-
-```bash
-npm run start:gateway
-```
-
-5. Verify:
-
-```bash
-curl http://127.0.0.1:8787/health
-curl http://127.0.0.1:8787/ready
-```
-
-## Configuration
-
-See [.env.example](.env.example) for the full list.
-
-Important settings:
-
-- `TRAE_BIN`: path to `Trae.exe`
-- `TRAE_PROJECT_PATH`: project folder Trae should open
-- `TRAE_REMOTE_DEBUGGING_PORT`: primary CDP port
-- `TRAE_QUICKSTART_USE_ISOLATED_PROFILE`: lets quickstart fall back to a dedicated Trae window automatically
-- `TRAE_QUICKSTART_REMOTE_DEBUGGING_PORT`: CDP port for the dedicated quickstart window
-- `TRAE_QUICKSTART_USER_DATA_DIR`: Chromium profile directory for the dedicated quickstart window
-- `TRAE_QUICKSTART_PROFILE_SEED`: enables copying login/session state from the existing local Trae profile into the isolated quickstart profile
-- `TRAE_QUICKSTART_PROFILE_SEED_SOURCE_DIR`: override the local Trae profile root used for isolated-profile seeding
-- `TRAE_QUICKSTART_OPEN_CHAT`: automatically opens `/chat` after quickstart is ready
-- `TRAE_COMPOSER_SELECTORS`: selectors for the input area
-- `TRAE_SEND_BUTTON_SELECTORS`: selectors for the send button
-- `TRAE_RESPONSE_SELECTORS`: selectors for final reply content
-- `TRAE_ACTIVITY_SELECTORS`: selectors for process text and activity text
-- `TRAE_NEW_CHAT_SELECTORS`: selectors used to create a fresh Trae conversation
-- `TRAE_GATEWAY_TOKEN`: optional Bearer token for API routes
-- `TRAE_ALLOWED_ORIGINS`: optional browser origin allowlist
-- `TRAE_ENABLE_DEBUG_ENDPOINTS`: enables `/debug/automation`
-
-## Selector Discovery
-
-If the built-in selectors stop matching after a Trae update:
-
-```bash
-npm run inspect:trae
-```
-
-The inspector prints:
-
-- matched target info
-- selector hit counts
-- visible composer and send-button candidates
-- response and activity diagnostics
-
-## Safe Attach Mode
-
-If Trae is already running and you do not want scripts to relaunch it:
-
-```bash
-set TRAE_SAFE_ATTACH_ONLY=1
-npm run start:gateway
-```
-
-If you want the local API to stay up even while Trae is offline:
-
-```bash
-set TRAE_SAFE_ATTACH_ONLY=1
-set TRAE_ENABLE_MOCK_BRIDGE=1
-npm run start:gateway
-```
-
-## Limitations
-
-- This bridge reads rendered DOM text. It does not use OCR and does not call a private Trae API.
-- Trae UI updates can break selectors.
-- Process text and final reply text both come from the rendered UI, so task streams may include intermediate status text.
-- Sessions are in-memory gateway sessions, not durable Trae-side IDs.
-- Requests are serialized so multiple callers do not type into the same Trae window at once.
-
-## Debugging
-
-Basic checks:
-
-```bash
-curl http://127.0.0.1:8787/health
-curl http://127.0.0.1:8787/ready
-npm run inspect:trae
-```
-
-Optional automation diagnostics:
-
-```bash
-set TRAE_ENABLE_DEBUG_ENDPOINTS=1
-curl http://127.0.0.1:8787/debug/automation
-```
-
-## Validation
-
-```bash
-npm test
-npm run lint
-npm run typecheck
-```
+- 这套桥接基于 `CDP + DOM 自动化`，不是 Trae 官方 API。
+- Trae 更新后，selector 可能需要调整。
+- 单个 Trae 窗口本质上仍然是串行执行。

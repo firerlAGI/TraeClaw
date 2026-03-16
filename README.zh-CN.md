@@ -1,6 +1,6 @@
 # TraeAPI
 
-[English](README.md) | [中文](README.zh-CN.md)
+[中文](README.md) | [English](README.en.md)
 
 TraeAPI 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本地桥接服务。
 
