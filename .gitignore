@@ -1,0 +1,8 @@
+.runtime/
+debug.log
+.env
+.env.*
+!.env.example
+*.log
+__pycache__/
+*.pyc
