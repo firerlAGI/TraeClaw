@@ -58,6 +58,15 @@ Use trae_status exactly once and tell me whether Trae is ready.
 
 用户可直接复制的对话模板见 [docs/openclaw-chat-prompts.zh-CN.md](docs/openclaw-chat-prompts.zh-CN.md)。
 
+如果你想直接给 OpenClaw 一句可执行的话，也可以直接发：
+
+```text
+请帮我把本地仓库 E:\path\to\TraeElectronAPI 安装到 OpenClaw。
+请先阅读仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md。
+因为仓库已经在本地，请直接运行 scripts/install-openclaw-integration.ps1。
+安装完成后请验证 trae-ide，并告诉我是否需要重启 OpenClaw Gateway，再给我一句测试 trae_status 的话。
+```
+
 ## 快速开始
 
 ### Windows 一键启动

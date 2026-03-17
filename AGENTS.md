@@ -38,6 +38,10 @@
    - `openclaw plugins info trae-ide`
    - `openclaw config validate`
    - 用户重启 OpenClaw Gateway 后可调用 `trae_status`
+6. 如果用户已经明确给出本地仓库路径：
+   - 不要再要求用户提供 GitHub 地址
+   - 不要再介绍手工安装路径
+   - 直接进入该路径并执行 `scripts/install-openclaw-integration.ps1`
 
 ## OpenClaw 建议输出风格
 

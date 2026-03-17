@@ -37,6 +37,29 @@ openclaw config validate
 - 本地仓库：执行 `scripts/install-openclaw-integration.ps1`
 - 远程仓库：优先执行 `scripts/bootstrap-openclaw-integration.ps1`
 
+## 用户可直接复制给 OpenClaw 的本地安装提示词
+
+如果用户已经有本地仓库，优先让用户直接把下面这段话发给 OpenClaw：
+
+```text
+请帮我把本地 TraeAPI 仓库安装到 OpenClaw。
+仓库路径是：E:\path\to\TraeElectronAPI
+
+请先阅读仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md。
+因为仓库已经在本地，请直接在仓库根目录执行：
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-openclaw-integration.ps1
+
+不要使用 openclaw plugins install <github-url> 或 git spec。
+安装完成后请验证：
+- openclaw plugins info trae-ide
+- openclaw config validate
+
+最后请告诉我：
+1. 是否安装成功
+2. 是否需要我重启 OpenClaw Gateway
+3. 我下一句应该如何测试 trae_status 和 trae_delegate
+```
+
 ## 目标
 
 把下面这条链路安装到用户机器上：
