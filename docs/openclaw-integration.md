@@ -93,6 +93,40 @@ You can also start from repository examples instead of writing the config from s
 - [Plugin example config](../integrations/openclaw-trae-plugin/examples/openclaw.config.example.json)
 - [Minimal plugin config](../integrations/openclaw-trae-plugin/examples/openclaw.minimal.config.json)
 
+## 2.1 Dev Hot Plugin Directory
+
+While developing the plugin, do not point OpenClaw directly at the source directory:
+
+- do not load `integrations/openclaw-trae-plugin` directly
+
+Instead, generate a separate local hot plugin directory:
+
+```bash
+npm run dev:plugin-hot
+```
+
+For continuous development:
+
+```bash
+npm run dev:plugin-hot:watch
+```
+
+The script generates:
+
+- hot plugin dir: `.runtime/openclaw-plugin-hot/trae-ide`
+- OpenClaw dev config template: `.runtime/openclaw-plugin-hot/openclaw.dev.config.json`
+
+This keeps the roles clear:
+
+- development source dir: `integrations/openclaw-trae-plugin`
+- OpenClaw runtime load dir: `.runtime/openclaw-plugin-hot/trae-ide`
+
+Notes:
+
+- OpenClaw should load the hot plugin dir, not the source dir
+- `quickstartCommand` and `quickstartCwd` should still point at the development repository root
+- if the OpenClaw host does not auto-reload plugin code, restart OpenClaw Gateway after sync
+
 ## 3. Enable The Tools Correctly
 
 Use `alsoAllow`, not a plugin-only `allow` list.

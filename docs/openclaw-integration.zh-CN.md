@@ -94,6 +94,40 @@ Windows 用户可以继续使用 `"C:\path\to\TraeAPI\start-traeapi.cmd"` 作为
 - [macOS 示例](../integrations/openclaw-trae-plugin/examples/openclaw.config.macos.example.json)
 - [最小示例](../integrations/openclaw-trae-plugin/examples/openclaw.minimal.config.json)
 
+## 2.1 开发期热更新目录
+
+如果你在开发插件，不建议让 OpenClaw 直接加载开发目录：
+
+- 不要直接指向 `integrations/openclaw-trae-plugin`
+
+推荐做法是先生成一个独立的本地热更新目录：
+
+```bash
+npm run dev:plugin-hot
+```
+
+持续开发时用：
+
+```bash
+npm run dev:plugin-hot:watch
+```
+
+脚本会生成：
+
+- 热更新插件目录：`.runtime/openclaw-plugin-hot/trae-ide`
+- OpenClaw 开发配置模板：`.runtime/openclaw-plugin-hot/openclaw.dev.config.json`
+
+这样可以明确区分：
+
+- 开发目录：`integrations/openclaw-trae-plugin`
+- OpenClaw 实际加载目录：`.runtime/openclaw-plugin-hot/trae-ide`
+
+注意：
+
+- OpenClaw 应该加载热更新目录，不要直接加载开发目录
+- `quickstartCommand` 和 `quickstartCwd` 仍然应该指向开发仓库根目录
+- 如果 OpenClaw 宿主没有自动重载插件代码，改完后仍需重启 OpenClaw Gateway
+
 ## 3. 正确启用工具
 
 请用 `alsoAllow`，不要只写插件专用的 `allow`。
