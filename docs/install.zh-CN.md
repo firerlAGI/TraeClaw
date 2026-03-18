@@ -47,6 +47,26 @@ bash ./scripts/install-openclaw-integration.sh
 - Windows：`scripts/bootstrap-openclaw-integration.ps1`
 - macOS：`scripts/bootstrap-openclaw-integration.sh`
 
+## 持续更新版安装
+
+如果你的目标是让用户后续直接通过 OpenClaw 收插件更新，推荐把插件作为 npm 包安装：
+
+```bash
+openclaw plugins install openclaw-trae-ide
+openclaw plugins enable trae-ide
+```
+
+发布新版本后，用户更新：
+
+```bash
+openclaw plugins update trae-ide
+```
+
+要注意两点：
+
+- 这个 npm 包只分发 OpenClaw 插件，不分发完整 TraeAPI 网关
+- 你仍然需要本地运行 TraeAPI，或者把 `plugins.entries.trae-ide.config.quickstartCommand` 指向本地 TraeAPI 仓库里的启动脚本
+
 ## 开始前请确认
 
 请确认：

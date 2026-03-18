@@ -93,7 +93,38 @@ You can also start from repository examples instead of writing the config from s
 - [Plugin example config](../integrations/openclaw-trae-plugin/examples/openclaw.config.example.json)
 - [Minimal plugin config](../integrations/openclaw-trae-plugin/examples/openclaw.minimal.config.json)
 
-## 2.1 Dev Hot Plugin Directory
+## 2.1 npm Distribution Install
+
+If you want users to receive plugin updates directly through OpenClaw later, install the npm distribution:
+
+```bash
+openclaw plugins install openclaw-trae-ide
+openclaw plugins enable trae-ide
+```
+
+Then set at least these values:
+
+```bash
+openclaw config set plugins.entries.trae-ide.enabled true --strict-json
+openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
+openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
+openclaw config set plugins.entries.trae-ide.config.quickstartCommand "\"/path/to/TraeAPI/start-traeapi.command\""
+openclaw config set plugins.entries.trae-ide.config.quickstartCwd "/path/to/TraeAPI"
+```
+
+Users update later with:
+
+```bash
+openclaw plugins update trae-ide
+```
+
+Important:
+
+- the npm package only ships the OpenClaw plugin
+- it does not bundle the full TraeAPI gateway
+- if `quickstartCommand` is not configured, TraeAPI must already be running
+
+## 2.2 Dev Hot Plugin Directory
 
 While developing the plugin, do not point OpenClaw directly at the source directory:
 

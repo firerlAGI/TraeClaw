@@ -24,6 +24,8 @@
     "quickstart": "node scripts/quickstart.js",
     "dev:plugin-hot": "node scripts/dev-openclaw-plugin-hot.js",
     "dev:plugin-hot:watch": "node scripts/dev-openclaw-plugin-hot.js --watch",
+    "release:openclaw-plugin:check": "node scripts/check-openclaw-plugin-release.js",
+    "pack:openclaw-plugin": "npm --prefix integrations/openclaw-trae-plugin run pack:check",
     "start:trae": "node scripts/start-trae.js",
     "start:gateway": "node scripts/start-gateway.js",
     "inspect:trae": "node scripts/inspect-trae.js",

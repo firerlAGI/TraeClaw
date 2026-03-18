@@ -10,6 +10,27 @@
 
 这不是模型提供方接入。OpenClaw 继续使用自己的 LLM，这个插件只负责把 IDE 工作委托给 Trae。
 
+## 持续更新版安装
+
+如果你希望后续通过 OpenClaw 直接收插件更新，优先用 npm 安装版：
+
+```bash
+openclaw plugins install openclaw-trae-ide
+openclaw plugins enable trae-ide
+```
+
+后续发布新版本后，用户更新：
+
+```bash
+openclaw plugins update trae-ide
+```
+
+注意：
+
+- npm 插件包只包含 OpenClaw 插件本体，不包含完整 TraeAPI 网关
+- 你仍然需要本地有可运行的 TraeAPI
+- 如果希望插件自动拉起 TraeAPI，仍然要把 `quickstartCommand` 和 `quickstartCwd` 指到本地 TraeAPI 仓库
+
 ## 暴露的工具
 
 - `trae_status`

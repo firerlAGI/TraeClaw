@@ -94,7 +94,37 @@ Windows 用户可以继续使用 `"C:\path\to\TraeAPI\start-traeapi.cmd"` 作为
 - [macOS 示例](../integrations/openclaw-trae-plugin/examples/openclaw.config.macos.example.json)
 - [最小示例](../integrations/openclaw-trae-plugin/examples/openclaw.minimal.config.json)
 
-## 2.1 开发期热更新目录
+## 2.1 npm 发布版安装
+
+如果你希望用户后续通过 OpenClaw 直接收插件更新，可以改用 npm 安装：
+
+```bash
+openclaw plugins install openclaw-trae-ide
+openclaw plugins enable trae-ide
+```
+
+然后至少补上这些配置：
+
+```bash
+openclaw config set plugins.entries.trae-ide.enabled true --strict-json
+openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
+openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
+openclaw config set plugins.entries.trae-ide.config.quickstartCommand "\"/path/to/TraeAPI/start-traeapi.command\""
+openclaw config set plugins.entries.trae-ide.config.quickstartCwd "/path/to/TraeAPI"
+```
+
+后续用户更新：
+
+```bash
+openclaw plugins update trae-ide
+```
+
+注意：
+
+- npm 包只分发 OpenClaw 插件，不包含完整 TraeAPI 网关
+- 如果不配置 `quickstartCommand`，那就需要你自己先把 TraeAPI 启动好
+
+## 2.2 开发期热更新目录
 
 如果你在开发插件，不建议让 OpenClaw 直接加载开发目录：
 

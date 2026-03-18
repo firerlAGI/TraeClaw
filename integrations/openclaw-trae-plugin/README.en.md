@@ -10,6 +10,27 @@ Target flow:
 
 This is not a model-provider integration. OpenClaw keeps using its own LLM. The plugin only delegates IDE work to Trae.
 
+## Install For Ongoing Updates
+
+If you want users to receive future plugin updates through OpenClaw, install the npm distribution:
+
+```bash
+openclaw plugins install openclaw-trae-ide
+openclaw plugins enable trae-ide
+```
+
+After a new version is published, users can update with:
+
+```bash
+openclaw plugins update trae-ide
+```
+
+Important:
+
+- the npm package only contains the OpenClaw plugin
+- it does not bundle the full TraeAPI gateway
+- if you want auto-start, keep `quickstartCommand` and `quickstartCwd` pointing at a local TraeAPI checkout
+
 ## Exposed Tools
 
 - `trae_status`
@@ -19,17 +40,25 @@ This is not a model-provider integration. OpenClaw keeps using its own LLM. The 
 ## Slash Command
 
 - `/Trae <task>`
+- `/Trae process <task>`
 
 Type `/Trae` directly in the OpenClaw chat box. The plugin will:
 
 1. Ensure TraeAPI is running
 2. Create a fresh Trae chat
 3. Delegate the task text after `/Trae` directly to Trae
+4. Return only Trae's final reply by default
+
+Use `/Trae process <task>` when you also want the process trace.
 
 Example:
 
 ```text
 /Trae Analyze this repository and implement the missing login error state.
+```
+
+```text
+/Trae process Analyze this repository and return the execution trace too.
 ```
 
 ## Recommended Setup
