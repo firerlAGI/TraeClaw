@@ -109,8 +109,7 @@ openclaw plugins enable trae-ide
 openclaw config set plugins.entries.trae-ide.enabled true --strict-json
 openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
 openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
-openclaw config set plugins.entries.trae-ide.config.quickstartCommand "\"/path/to/TraeAPI/start-traeapi.command\""
-openclaw config set plugins.entries.trae-ide.config.quickstartCwd "/path/to/TraeAPI"
+openclaw config validate
 ```
 
 后续用户更新：
@@ -121,8 +120,9 @@ openclaw plugins update trae-ide
 
 注意：
 
-- npm 包只分发 OpenClaw 插件，不包含完整 TraeAPI 网关
-- 如果不配置 `quickstartCommand`，那就需要你自己先把 TraeAPI 启动好
+- npm 包内已经自带完整 TraeAPI runtime
+- 用户执行 `openclaw plugins update trae-ide` 时，插件和网关能力会一起更新
+- 如果你显式配置了 `quickstartCommand`，会覆盖包内默认 runtime 启动入口
 
 ## 2.2 开发期热更新目录
 

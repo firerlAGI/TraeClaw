@@ -64,8 +64,17 @@ openclaw plugins update trae-ide
 
 要注意两点：
 
-- 这个 npm 包只分发 OpenClaw 插件，不分发完整 TraeAPI 网关
-- 你仍然需要本地运行 TraeAPI，或者把 `plugins.entries.trae-ide.config.quickstartCommand` 指向本地 TraeAPI 仓库里的启动脚本
+- 这个 npm 包会同时分发 OpenClaw 插件和完整 TraeAPI runtime
+- 用户执行 `openclaw plugins update trae-ide` 时，插件和网关能力会一起更新
+
+如果希望插件自动拉起包内 runtime，再补上：
+
+```bash
+openclaw config set plugins.entries.trae-ide.enabled true --strict-json
+openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
+openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
+openclaw config validate
+```
 
 ## 开始前请确认
 

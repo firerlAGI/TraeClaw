@@ -1,6 +1,9 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
 const http = require("node:http");
+const os = require("node:os");
+const path = require("node:path");
 const {
   TraeApiClient,
   formatDelegateToolResult,
@@ -8,6 +11,7 @@ const {
   formatStatusToolResult,
   getBundledQuickstartDefaults,
   resolveReplyText,
+  resolveBundledRuntimeRoot,
   resolvePluginRuntimeConfig,
   stripDuplicateFinalText
 } = require("./traeapi-client");
@@ -204,4 +208,29 @@ test("getBundledQuickstartDefaults picks the macOS launcher when available", () 
   });
 
   assert.equal(defaults.quickstartCommand.includes("start-traeapi.command"), true);
+});
+
+test("getBundledQuickstartDefaults prefers the bundled runtime when present", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "trae-plugin-runtime-"));
+  const packageRoot = path.join(tempRoot, "plugin");
+  const bundledRuntimeRoot = path.join(packageRoot, "runtime", "traeapi");
+  fs.mkdirSync(path.join(bundledRuntimeRoot, "scripts"), { recursive: true });
+  fs.writeFileSync(path.join(bundledRuntimeRoot, "scripts", "quickstart.js"), "console.log('ok');\n", "utf8");
+  fs.writeFileSync(path.join(bundledRuntimeRoot, "start-traeapi.command"), "#!/bin/bash\n", "utf8");
+
+  try {
+    assert.equal(resolveBundledRuntimeRoot({ packageRoot }), bundledRuntimeRoot);
+    const defaults = getBundledQuickstartDefaults({
+      packageRoot,
+      platform: "darwin",
+      execPath: "/usr/local/bin/node"
+    });
+    assert.equal(defaults.quickstartCommand, `"${path.join(bundledRuntimeRoot, "start-traeapi.command")}"`);
+    assert.equal(defaults.quickstartCwd, bundledRuntimeRoot);
+  } finally {
+    fs.rmSync(tempRoot, {
+      recursive: true,
+      force: true
+    });
+  }
 });

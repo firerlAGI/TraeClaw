@@ -27,9 +27,9 @@ openclaw plugins update trae-ide
 
 Important:
 
-- the npm package only contains the OpenClaw plugin
-- it does not bundle the full TraeAPI gateway
-- if you want auto-start, keep `quickstartCommand` and `quickstartCwd` pointing at a local TraeAPI checkout
+- the npm package now bundles the full TraeAPI runtime
+- when users run `openclaw plugins update trae-ide`, the plugin and gateway capabilities update together
+- with `autoStart` enabled, the plugin can launch the bundled quickstart entry point without a separate local checkout
 
 ## Exposed Tools
 

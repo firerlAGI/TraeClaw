@@ -64,8 +64,17 @@ openclaw plugins update trae-ide
 
 Two important constraints:
 
-- the npm package only distributes the OpenClaw plugin, not the full TraeAPI gateway
-- you still need a local TraeAPI runtime, or you need `plugins.entries.trae-ide.config.quickstartCommand` to point to a local TraeAPI checkout
+- the npm package now ships both the OpenClaw plugin and the full TraeAPI runtime
+- when users run `openclaw plugins update trae-ide`, the plugin and gateway capabilities update together
+
+To let the plugin auto-start the bundled runtime, also set:
+
+```bash
+openclaw config set plugins.entries.trae-ide.enabled true --strict-json
+openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
+openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
+openclaw config validate
+```
 
 ## Before You Start
 

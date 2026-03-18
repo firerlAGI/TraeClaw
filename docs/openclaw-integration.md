@@ -108,8 +108,7 @@ Then set at least these values:
 openclaw config set plugins.entries.trae-ide.enabled true --strict-json
 openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
 openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
-openclaw config set plugins.entries.trae-ide.config.quickstartCommand "\"/path/to/TraeAPI/start-traeapi.command\""
-openclaw config set plugins.entries.trae-ide.config.quickstartCwd "/path/to/TraeAPI"
+openclaw config validate
 ```
 
 Users update later with:
@@ -120,9 +119,9 @@ openclaw plugins update trae-ide
 
 Important:
 
-- the npm package only ships the OpenClaw plugin
-- it does not bundle the full TraeAPI gateway
-- if `quickstartCommand` is not configured, TraeAPI must already be running
+- the npm package now bundles the full TraeAPI runtime
+- when users run `openclaw plugins update trae-ide`, the plugin and gateway capabilities update together
+- if you explicitly configure `quickstartCommand`, it overrides the bundled runtime launcher
 
 ## 2.2 Dev Hot Plugin Directory
 

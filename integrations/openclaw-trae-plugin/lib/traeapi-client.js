@@ -41,10 +41,34 @@ function quoteShellPath(value) {
   return `"${String(value || "").replaceAll("\\\"", "\\\\\\\"")}"`;
 }
 
+function resolveBundledRuntimeRoot(options = {}) {
+  const packageRoot = path.resolve(options.packageRoot || path.join(__dirname, ".."));
+  const bundledRuntimeRoot = path.join(packageRoot, "runtime", "traeapi");
+  if (fs.existsSync(path.join(bundledRuntimeRoot, "scripts", "quickstart.js"))) {
+    return bundledRuntimeRoot;
+  }
+
+  const sourceRepoRoot = path.resolve(packageRoot, "..", "..");
+  if (
+    fs.existsSync(path.join(sourceRepoRoot, "scripts", "quickstart.js")) &&
+    fs.existsSync(path.join(sourceRepoRoot, "integrations", "openclaw-trae-plugin", "index.js"))
+  ) {
+    return sourceRepoRoot;
+  }
+
+  return "";
+}
+
 function getBundledQuickstartDefaults(options = {}) {
-  const repoRoot = path.resolve(__dirname, "..", "..", "..");
+  const repoRoot = resolveBundledRuntimeRoot(options);
   const platform = options.platform || process.platform;
   const nodeExecPath = options.execPath || process.execPath;
+  if (!repoRoot) {
+    return {
+      quickstartCommand: "",
+      quickstartCwd: ""
+    };
+  }
   const windowsLauncher = path.join(repoRoot, "start-traeapi.cmd");
   const macLauncher = path.join(repoRoot, "start-traeapi.command");
   const posixLauncher = path.join(repoRoot, "start-traeapi.sh");
@@ -484,6 +508,7 @@ module.exports = {
   formatStatusToolResult,
   getBundledQuickstartDefaults,
   resolveReplyText,
+  resolveBundledRuntimeRoot,
   resolvePluginRuntimeConfig,
   stripDuplicateFinalText
 };

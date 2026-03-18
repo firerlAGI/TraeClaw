@@ -24,9 +24,12 @@
     "lib/traeapi-client.js",
     "openclaw.plugin.json",
     "README.md",
-    "README.en.md"
+    "README.en.md",
+    "runtime"
   ],
   "scripts": {
+    "sync:runtime": "node ../../scripts/sync-openclaw-plugin-runtime.js",
+    "prepack": "npm run sync:runtime",
     "test": "node index.test.js && node lib/traeapi-client.test.js",
     "pack:check": "npm pack --dry-run"
   },

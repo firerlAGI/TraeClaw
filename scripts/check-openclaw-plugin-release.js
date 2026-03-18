@@ -25,6 +25,9 @@ function main() {
   assertCondition(pluginManifest.id === "trae-ide", "OpenClaw plugin id must remain trae-ide.");
   assertCondition(Array.isArray(packageJson.openclaw?.extensions), "Plugin package.json must define openclaw.extensions.");
   assertCondition(packageJson.openclaw.extensions.includes("./index.js"), "Plugin package.json must expose ./index.js as an OpenClaw extension.");
+  assertCondition(typeof packageJson.scripts?.["sync:runtime"] === "string", "Plugin package.json must define scripts.sync:runtime.");
+  assertCondition(typeof packageJson.scripts?.prepack === "string", "Plugin package.json must define a prepack script.");
+  assertCondition(Array.isArray(packageJson.files) && packageJson.files.includes("runtime"), "Plugin package.json must publish the bundled runtime directory.");
 
   const requiredFiles = ["index.js", "openclaw.plugin.json", "README.md"];
   for (const relativePath of requiredFiles) {

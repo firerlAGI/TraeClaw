@@ -27,9 +27,9 @@ openclaw plugins update trae-ide
 
 注意：
 
-- npm 插件包只包含 OpenClaw 插件本体，不包含完整 TraeAPI 网关
-- 你仍然需要本地有可运行的 TraeAPI
-- 如果希望插件自动拉起 TraeAPI，仍然要把 `quickstartCommand` 和 `quickstartCwd` 指到本地 TraeAPI 仓库
+- npm 包内已经包含完整 TraeAPI runtime
+- 用户执行 `openclaw plugins update trae-ide` 时，插件和网关能力会一起更新
+- 如果启用 `autoStart`，插件会优先拉起包内自带的 quickstart 入口，不需要额外本地仓库
 
 ## 暴露的工具
 

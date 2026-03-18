@@ -1,4 +1,5 @@
 .runtime/
+integrations/openclaw-trae-plugin/runtime/
 debug.log
 .env
 .env.*
