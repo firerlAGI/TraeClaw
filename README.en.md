@@ -1,6 +1,6 @@
 # TraeAPI
 
-[English](README.en.md) | [中文](README.md)
+[Chinese Home](README.md) | [Chinese Mirror](README.zh-CN.md)
 
 TraeAPI is a local bridge that lets OpenClaw use the Trae desktop app as an IDE tool.
 
@@ -8,55 +8,106 @@ Target flow:
 
 `OpenClaw -> trae_delegate -> TraeAPI -> Trae desktop app`
 
-This is not a model-provider integration. OpenClaw keeps using its own LLM. TraeAPI only exposes Trae IDE capabilities locally.
+## Current Status
 
-## Primary Audience
+- The current priority target is the Trae international edition
+- Support for the Trae China plugin is still under development
+- macOS is the recommended stable deployment platform today
+- Windows and other platforms are still under active development and should not be treated as stable public deployment targets yet
 
-This repository is mainly optimized for OpenClaw users who want a local Trae bridge with the shortest possible setup path.
+Direct local HTTP API usage is still available for experiments, but it is no longer the primary path recommended on the homepage.
 
-## Shortest Setup Path
+## One-Line Guidance For Users
 
-1. Install `Node.js 22+`
-2. Run `npm install`
-3. Start TraeAPI:
-   - Windows: double-click [start-traeapi.cmd](start-traeapi.cmd)
-   - macOS: double-click [start-traeapi.command](start-traeapi.command)
-4. Load the [openclaw-trae-plugin](integrations/openclaw-trae-plugin/README.en.md) in OpenClaw
-5. Restart OpenClaw Gateway
-6. Ask OpenClaw to call `trae_status` or `trae_delegate`
+If you just want the shortest working path, the recommended flow today is:
 
-On first launch, TraeAPI will try to:
+- use macOS
+- let OpenClaw install `traeelectronapi` from npm
+- then verify `trae_status` and `trae_delegate`
 
-- create `.env` from [`.env.example`](.env.example)
-- detect the local Trae executable automatically
-- create a local workspace folder if none is configured
-- attach to your existing Trae window first
-- fall back to a dedicated Trae window when the current one is not automation-ready
-- start the local HTTP gateway
-- open the built-in chat page for diagnostics
+## One-Line Prompt For OpenClaw
 
-If auto-detection does not find Trae, quickstart will ask once for the local executable path. On macOS you can also point `TRAE_BIN` at `Trae.app`.
+You can paste the following sentence directly into OpenClaw:
 
-## Important Local URLs
+```text
+Please read AGENTS.md and AI_INSTALL.zh-CN.md from https://github.com/firerlAGI/TraeElectronAPI first, then install and enable traeelectronapi (trae-ide) from npm on macOS, verify openclaw plugins info trae-ide and openclaw config validate, remind me to restart OpenClaw Gateway, run trae_status once, and then tell me how to use trae_delegate next.
+```
 
-- Ready check: `http://127.0.0.1:8787/ready`
-- Diagnostic chat page: `http://127.0.0.1:8787/chat`
+For a longer Chinese conversation template, see [docs/openclaw-chat-prompts.zh-CN.md](docs/openclaw-chat-prompts.zh-CN.md).
 
-The real success condition is not just "the gateway is up". It is that OpenClaw can successfully call:
+## Entry Points For AI Assistants
 
-- `trae_status`
-- `trae_delegate`
+If the executor is OpenClaw, Codex, or another AI assistant, start with:
 
-## Docs
+- [AGENTS.md](AGENTS.md)
+- [AI_INSTALL.zh-CN.md](AI_INSTALL.zh-CN.md)
+- [OpenClaw Chat Install Prompts](docs/openclaw-chat-prompts.zh-CN.md)
+- [OpenClaw Install Guide](docs/install.md)
 
-- [AI Install Guide (Chinese)](AI_INSTALL.zh-CN.md)
-- [Install Guide](docs/install.md)
+## Success Criteria
+
+Success is not "a script finished". Success means all of the following are true:
+
+- `openclaw plugins info trae-ide` succeeds
+- `openclaw config validate` succeeds
+- OpenClaw can call `trae_status`
+- OpenClaw can call `trae_delegate`
+
+## Recommended Install Path: npm Package
+
+If you want a stable, update-friendly installation path for OpenClaw users, prefer the npm package:
+
+```bash
+openclaw plugins install traeelectronapi
+openclaw plugins enable trae-ide
+openclaw config set plugins.entries.trae-ide.enabled true --strict-json
+openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
+openclaw config set plugins.entries.trae-ide.config.baseUrl "http://127.0.0.1:8787"
+openclaw config validate
+```
+
+After installation, ask the user to:
+
+1. restart OpenClaw Gateway
+2. run `trae_status` once
+3. run `trae_delegate` once
+
+Update later with:
+
+```bash
+openclaw plugins update trae-ide
+```
+
+Notes:
+
+- the npm package already bundles the OpenClaw plugin and the full TraeAPI runtime
+- the homepage now recommends the npm package, not manual plugin-directory copying
+- do not ask OpenClaw to run `openclaw plugins install <github-url>` or a git spec
+
+## If npm Is Not Suitable, Fall Back To Local Repo Scripts
+
+Only use the repository scripts when:
+
+- you are debugging source code
+- you need to modify the local runtime
+- you do not want to use the npm-based update path yet
+
+If the repository is already local:
+
+- macOS: `bash ./scripts/install-openclaw-integration.sh`
+- Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\install-openclaw-integration.ps1`
+
+If the repository is not local yet:
+
+- macOS: `bash ./scripts/bootstrap-openclaw-integration.sh`
+- Windows: `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\bootstrap-openclaw-integration.ps1`
+
+## Documentation
+
+- [OpenClaw Install Guide](docs/install.md)
 - [OpenClaw Integration Guide](docs/openclaw-integration.md)
-- [FAQ](docs/faq.md)
+- [OpenClaw Chat Install Prompts](docs/openclaw-chat-prompts.zh-CN.md)
 - [Plugin README](integrations/openclaw-trae-plugin/README.en.md)
+- [FAQ](docs/faq.md)
 - [Changelog](CHANGELOG.md)
 - [Security Policy](SECURITY.md)
-
-## Advanced Usage
-
-Direct local HTTP API usage is still available for advanced users and debugging. See [docs/api.md](docs/api.md).
