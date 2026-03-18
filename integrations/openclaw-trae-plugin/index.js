@@ -19,12 +19,39 @@ function buildToolContent(text) {
 }
 
 function buildTraeSlashUsage() {
-  return "Usage: /Trae <task>\nExample: /Trae analyze this repository and implement the missing feature.";
+  return [
+    "Usage: /Trae <task>",
+    "Usage: /Trae process <task>",
+    "Example: /Trae analyze this repository and implement the missing feature.",
+    "Example: /Trae process analyze this repository and include the process trace."
+  ].join("\n");
 }
 
-function buildTraeSlashResult(sessionId, result) {
-  const summary = formatDelegateToolResult(result);
-  return [`Trae slash command completed.`, `Session ID: ${sessionId || "unknown"}`, summary].join("\n\n");
+function parseTraeSlashArgs(rawArgs) {
+  const trimmed = String(rawArgs || "").trim();
+  if (!trimmed) {
+    return {
+      task: "",
+      includeProcessText: false
+    };
+  }
+
+  const processPrefixMatch = /^(?:process|--process|-p|verbose)\b/i.exec(trimmed);
+  if (!processPrefixMatch) {
+    return {
+      task: trimmed,
+      includeProcessText: false
+    };
+  }
+
+  return {
+    task: trimmed.slice(processPrefixMatch[0].length).trim(),
+    includeProcessText: true
+  };
+}
+
+function buildTraeSlashResult(result, options = {}) {
+  return formatDelegateToolResult(result, options);
 }
 
 function register(api) {
@@ -93,6 +120,10 @@ function register(api) {
           allowAutoStart: {
             type: "boolean",
             default: true
+          },
+          includeProcessText: {
+            type: "boolean",
+            default: false
           }
         },
         required: ["task"]
@@ -104,7 +135,11 @@ function register(api) {
           sessionId: params.sessionId,
           allowAutoStart: params.allowAutoStart !== false
         });
-        return buildToolContent(formatDelegateToolResult(result));
+        return buildToolContent(
+          formatDelegateToolResult(result, {
+            includeProcessText: params.includeProcessText === true
+          })
+        );
       }
     },
     {
@@ -118,8 +153,8 @@ function register(api) {
       description: "Create a fresh Trae chat and delegate a coding task directly to Trae.",
       acceptsArgs: true,
       async handler(ctx = {}) {
-        const task = String(ctx.args || "").trim();
-        if (!task) {
+        const parsed = parseTraeSlashArgs(ctx.args);
+        if (!parsed.task) {
           return {
             text: buildTraeSlashUsage()
           };
@@ -132,12 +167,14 @@ function register(api) {
           });
           const sessionId = String(created?.data?.session?.sessionId || "").trim();
           const result = await client.delegateTask({
-            task,
+            task: parsed.task,
             sessionId: sessionId || undefined,
             allowAutoStart: true
           });
           return {
-            text: buildTraeSlashResult(sessionId, result)
+            text: buildTraeSlashResult(result, {
+              includeProcessText: parsed.includeProcessText
+            })
           };
         } catch (error) {
           return {
@@ -152,6 +189,8 @@ function register(api) {
 module.exports = {
   id: PLUGIN_ID,
   name: "Trae IDE",
+  buildTraeSlashUsage,
+  parseTraeSlashArgs,
   register
 };
 module.exports.default = module.exports;

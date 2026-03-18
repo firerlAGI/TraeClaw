@@ -217,10 +217,26 @@ function formatNewChatToolResult(result) {
   return lines.join("\n");
 }
 
-function formatDelegateToolResult(result) {
+function resolveReplyText(result) {
+  const responseText = String(result?.data?.result?.response?.text || "").trim();
+  if (responseText) {
+    return responseText;
+  }
+
+  const chunks = normalizeChunks(result);
+  return chunks.length > 0 ? chunks[chunks.length - 1] : "";
+}
+
+function formatDelegateToolResult(result, options = {}) {
   const data = result?.data || {};
-  const finalText = String(data?.result?.response?.text || "").trim();
-  const processItems = stripDuplicateFinalText(normalizeChunks(result), finalText);
+  const includeProcessText = options.includeProcessText === true;
+  const replyText = resolveReplyText(result);
+  const processItems = stripDuplicateFinalText(normalizeChunks(result), replyText);
+
+  if (!includeProcessText) {
+    return replyText || "Trae task completed.";
+  }
+
   const sections = [
     "Trae task completed.",
     `Session ID: ${data.sessionId || "unknown"}`,
@@ -228,8 +244,8 @@ function formatDelegateToolResult(result) {
     `Session created: ${data.sessionCreated === true ? "yes" : "no"}`
   ];
 
-  if (finalText) {
-    sections.push(`Final reply\n${finalText}`);
+  if (replyText) {
+    sections.push(`Final reply\n${replyText}`);
   }
 
   const processSection = formatListSection("Process text", processItems);
@@ -467,6 +483,7 @@ module.exports = {
   formatNewChatToolResult,
   formatStatusToolResult,
   getBundledQuickstartDefaults,
+  resolveReplyText,
   resolvePluginRuntimeConfig,
   stripDuplicateFinalText
 };

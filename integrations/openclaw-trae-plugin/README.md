@@ -19,17 +19,27 @@
 ## 斜杠命令
 
 - `/Trae <任务>`
+- `/Trae process <任务>`
 
 在 OpenClaw 对话输入框里直接输入 `/Trae`，插件会：
 
 1. 自动确保 TraeAPI 已启动
 2. 新建一个 Trae 对话
 3. 把你在 `/Trae` 后面的任务直接交给 Trae 执行
+4. 默认只把 Trae 的最终回复回传到 OpenClaw
+
+如果你需要把过程信息也一起回传，再用：
+
+- `/Trae process <任务>`
 
 例如：
 
 ```text
 /Trae 分析当前仓库，并实现缺失的登录错误提示
+```
+
+```text
+/Trae process 分析当前仓库，并把执行过程也一起返回
 ```
 
 ## 推荐接入方式

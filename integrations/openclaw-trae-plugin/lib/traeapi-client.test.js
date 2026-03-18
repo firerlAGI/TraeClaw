@@ -7,6 +7,7 @@ const {
   formatNewChatToolResult,
   formatStatusToolResult,
   getBundledQuickstartDefaults,
+  resolveReplyText,
   resolvePluginRuntimeConfig,
   stripDuplicateFinalText
 } = require("./traeapi-client");
@@ -65,9 +66,29 @@ test("formatters produce readable summaries", () => {
       }
     }
   });
-  assert.equal(delegateText.includes("Final reply"), true);
-  assert.equal(delegateText.includes("step 1"), true);
-  assert.equal(delegateText.includes("1. final answer"), false);
+  assert.equal(delegateText, "final answer");
+
+  const verboseDelegateText = formatDelegateToolResult(
+    {
+      data: {
+        sessionId: "s1",
+        requestId: "r1",
+        sessionCreated: true,
+        result: {
+          response: {
+            text: "final answer"
+          },
+          chunks: ["step 1", "final answer"]
+        }
+      }
+    },
+    {
+      includeProcessText: true
+    }
+  );
+  assert.equal(verboseDelegateText.includes("Final reply"), true);
+  assert.equal(verboseDelegateText.includes("step 1"), true);
+  assert.equal(verboseDelegateText.includes("1. final answer"), false);
 
   const newChatText = formatNewChatToolResult({
     data: {
@@ -85,6 +106,22 @@ test("formatters produce readable summaries", () => {
   });
   assert.equal(newChatText.includes("New Trae chat created."), true);
   assert.equal(newChatText.includes("Session ID: session-new"), true);
+});
+
+test("resolveReplyText falls back to the last chunk when response text is empty", () => {
+  assert.equal(
+    resolveReplyText({
+      data: {
+        result: {
+          response: {
+            text: ""
+          },
+          chunks: ["step 1", "delegate ok"]
+        }
+      }
+    }),
+    "delegate ok"
+  );
 });
 
 test("TraeApiClient delegates tasks through /v1/chat", async () => {

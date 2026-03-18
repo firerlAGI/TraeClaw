@@ -37,3 +37,27 @@ test("plugin registers status, new chat, delegate tools, and the trae slash comm
   assert.equal(commands[0].name, "trae");
   assert.equal(commands[0].acceptsArgs, true);
 });
+
+test("parseTraeSlashArgs defaults to final reply mode", () => {
+  assert.deepEqual(plugin.parseTraeSlashArgs("fix the mac startup flow"), {
+    task: "fix the mac startup flow",
+    includeProcessText: false
+  });
+});
+
+test("parseTraeSlashArgs enables process mode with the process subcommand", () => {
+  assert.deepEqual(plugin.parseTraeSlashArgs("process inspect the current repository"), {
+    task: "inspect the current repository",
+    includeProcessText: true
+  });
+  assert.deepEqual(plugin.parseTraeSlashArgs("--process inspect the current repository"), {
+    task: "inspect the current repository",
+    includeProcessText: true
+  });
+});
+
+test("buildTraeSlashUsage documents the process subcommand", () => {
+  const usage = plugin.buildTraeSlashUsage();
+  assert.equal(usage.includes("/Trae <task>"), true);
+  assert.equal(usage.includes("/Trae process <task>"), true);
+});

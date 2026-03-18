@@ -179,12 +179,17 @@ Then ask OpenClaw something explicit:
 You can also type directly in the OpenClaw chat box:
 
 - `/Trae Analyze this repository and implement the missing login error state`
+- `/Trae process Analyze this repository and return the execution trace too`
 
 The plugin will automatically:
 
 - start or wake TraeAPI
 - create a fresh Trae chat
 - hand the text after `/Trae` directly to Trae
+
+By default, OpenClaw only receives Trae's final reply.
+
+The process trace is included only when you use `/Trae process ...`.
 
 ## 5. Troubleshooting
 

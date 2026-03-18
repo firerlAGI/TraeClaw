@@ -180,12 +180,17 @@ openclaw plugins info trae-ide
 你也可以在 OpenClaw 对话框里直接输入：
 
 - `/Trae 分析当前仓库，并实现缺失的登录错误提示`
+- `/Trae process 分析当前仓库，并把执行过程也一起返回`
 
 插件会自动：
 
 - 启动或唤起 TraeAPI
 - 新建一个 Trae 对话
 - 把 `/Trae` 后面的任务直接交给 Trae
+
+默认情况下，OpenClaw 只会看到 Trae 的最终回复。
+
+只有在使用 `/Trae process ...` 时，插件才会把过程信息一起回传。
 
 ## 5. 排障
 
