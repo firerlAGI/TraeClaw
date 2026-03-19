@@ -637,22 +637,48 @@ class TraeApiClient {
       throw new Error('trae_switch_mode requires mode to be either "solo" or "ide"');
     }
 
-    const readiness = await this.ensureReady({ allowAutoStart });
-    if (!readiness.ready) {
-      throw new Error(
-        readResponseErrorMessage(readiness.readyResponse, `TraeClaw at ${this.config.baseUrl} is not ready`)
-      );
+    const performRequest = () =>
+      this.request("/v1/mode", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: {
+          mode: normalizedMode
+        }
+      });
+
+    const shouldAttemptAutoStart = allowAutoStart && this.config.autoStart;
+    let autoStarted = false;
+    let response = null;
+
+    try {
+      response = await performRequest();
+    } catch (error) {
+      if (!shouldAttemptAutoStart) {
+        throw error;
+      }
+
+      const readiness = await this.ensureReady({ allowAutoStart: true });
+      if (!readiness.ready) {
+        throw new Error(
+          readResponseErrorMessage(readiness.readyResponse, `TraeClaw at ${this.config.baseUrl} is not ready`)
+        );
+      }
+      autoStarted = readiness.autoStarted;
+      response = await performRequest();
     }
 
-    const response = await this.request("/v1/mode", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: {
-        mode: normalizedMode
+    if ((!response.ok || !response.json?.success) && shouldAttemptAutoStart && response.status === 503) {
+      const readiness = await this.ensureReady({ allowAutoStart: true });
+      if (!readiness.ready) {
+        throw new Error(
+          readResponseErrorMessage(readiness.readyResponse, `TraeClaw at ${this.config.baseUrl} is not ready`)
+        );
       }
-    });
+      autoStarted = readiness.autoStarted;
+      response = await performRequest();
+    }
 
     if (!response.ok || !response.json?.success) {
       throw new Error(response.json?.message || `TraeClaw request failed with status ${response.status}`);
@@ -660,7 +686,7 @@ class TraeApiClient {
 
     return {
       ...response.json,
-      autoStarted: readiness.autoStarted
+      autoStarted
     };
   }
 

@@ -42,7 +42,7 @@ const DEFAULT_RESPONSE_TIMEOUT_MS = Number(process.env.TRAE_RESPONSE_TIMEOUT_MS 
 const DEFAULT_POST_ACTION_DELAY_MS = Number(process.env.TRAE_POST_ACTION_DELAY_MS || 350);
 const DEFAULT_SESSION_PREPARE_TIMEOUT_MS = Number(process.env.TRAE_SESSION_PREPARE_TIMEOUT_MS || 5000);
 const DEFAULT_SESSION_PREPARE_STABLE_POLLS = Number(process.env.TRAE_SESSION_PREPARE_STABLE_POLLS || 2);
-const DEFAULT_MODE_SWITCH_TIMEOUT_MS = Number(process.env.TRAE_MODE_SWITCH_TIMEOUT_MS || 5000);
+const DEFAULT_MODE_SWITCH_TIMEOUT_MS = Number(process.env.TRAE_MODE_SWITCH_TIMEOUT_MS || 15000);
 const DEFAULT_MODE_SWITCH_POLL_INTERVAL_MS = Number(process.env.TRAE_MODE_SWITCH_POLL_INTERVAL_MS || 100);
 
 function sleep(ms) {
@@ -217,6 +217,20 @@ function normalizeRequestedMode(value) {
     return normalized;
   }
   return "";
+}
+
+function isStableModeInspection(inspection, requestedMode) {
+  const currentMode = normalizeRequestedMode(inspection?.currentMode);
+  if (currentMode !== requestedMode) {
+    return false;
+  }
+
+  if (requestedMode === "solo") {
+    return true;
+  }
+
+  const bodyClassName = String(inspection?.bodyClassName || "");
+  return !/(^|\s)(?:dev-mode-transition|solo-mode-transition)(\s|$)/.test(bodyClassName);
 }
 
 async function inspectAutomationTarget(options = {}) {
@@ -650,7 +664,7 @@ async function waitForModeSwitch(options) {
 
   while (now() - startedAtMs < config.modeSwitchTimeoutMs) {
     lastInspection = await domAdapter.inspectMode(session, config);
-    if (lastInspection?.currentMode === requestedMode) {
+    if (isStableModeInspection(lastInspection, requestedMode)) {
       return lastInspection;
     }
     await sleep(config.modeSwitchPollIntervalMs);

@@ -408,7 +408,7 @@ test("delegateTask opens the requested project before sending the task", async (
   assert.equal(result.data.result.response.text, "delegate ok");
 });
 
-test("switchMode ensures readiness and posts the requested mode to the gateway", async () => {
+test("switchMode posts the requested mode to the gateway without a readiness preflight", async () => {
   const client = new TraeApiClient({
     baseUrl: "http://127.0.0.1:8787",
     token: "",
@@ -421,16 +421,20 @@ test("switchMode ensures readiness and posts the requested mode to the gateway",
 
   let requestedPath = "";
   let requestedBody = null;
-  client.ensureReady = async () => ({
-    ready: true,
-    autoStarted: true,
-    readyResponse: {
-      ok: true,
-      json: {
-        success: true
+  let ensureReadyCalled = false;
+  client.ensureReady = async () => {
+    ensureReadyCalled = true;
+    return {
+      ready: true,
+      autoStarted: true,
+      readyResponse: {
+        ok: true,
+        json: {
+          success: true
+        }
       }
-    }
-  });
+    };
+  };
   client.request = async (pathname, options = {}) => {
     requestedPath = pathname;
     requestedBody = options.body;
@@ -457,7 +461,8 @@ test("switchMode ensures readiness and posts the requested mode to the gateway",
     mode: "ide"
   });
   assert.equal(result.data.mode, "ide");
-  assert.equal(result.autoStarted, true);
+  assert.equal(result.autoStarted, false);
+  assert.equal(ensureReadyCalled, false);
 });
 
 test("getBundledQuickstartDefaults picks the macOS launcher when available", () => {
