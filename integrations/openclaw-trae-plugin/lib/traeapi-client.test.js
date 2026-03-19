@@ -552,11 +552,13 @@ test("getStatus includes plugin update details without affecting readiness check
 });
 
 test("getPluginUpdateInfo reports disabled checks without hitting the registry", async () => {
+  const packageRoot = createTempPluginPackage("0.2.1");
   const client = new TraeApiClient({
     baseUrl: "http://127.0.0.1:8787",
     token: "",
     autoStart: false,
     checkForUpdates: false,
+    packageRoot,
     packageName: "traeclaw",
     pluginVersion: "0.2.1",
     updateCheckTimeoutMs: 250,
@@ -570,20 +572,29 @@ test("getPluginUpdateInfo reports disabled checks without hitting the registry",
     throw new Error("should not be called");
   };
 
-  const updateInfo = await client.getPluginUpdateInfo({
-    forceRefresh: true
-  });
+  try {
+    const updateInfo = await client.getPluginUpdateInfo({
+      forceRefresh: true
+    });
 
-  assert.equal(updateInfo.disabled, true);
-  assert.equal(updateInfo.currentVersion, "0.2.1");
+    assert.equal(updateInfo.disabled, true);
+    assert.equal(updateInfo.currentVersion, "0.2.1");
+  } finally {
+    fs.rmSync(packageRoot, {
+      recursive: true,
+      force: true
+    });
+  }
 });
 
 test("getPluginUpdateInfo reports when a newer npm version is available", async () => {
+  const packageRoot = createTempPluginPackage("0.2.1");
   const client = new TraeApiClient({
     baseUrl: "http://127.0.0.1:8787",
     token: "",
     autoStart: false,
     checkForUpdates: true,
+    packageRoot,
     packageName: "traeclaw",
     pluginVersion: "0.2.1",
     updateCheckTimeoutMs: 250,
@@ -595,16 +606,23 @@ test("getPluginUpdateInfo reports when a newer npm version is available", async 
 
   client.fetchLatestPublishedVersion = async () => ({
     packageName: "traeclaw",
-    latestVersion: "0.2.3"
+    latestVersion: "0.3.1"
   });
 
-  const updateInfo = await client.getPluginUpdateInfo({
-    forceRefresh: true
-  });
+  try {
+    const updateInfo = await client.getPluginUpdateInfo({
+      forceRefresh: true
+    });
 
-  assert.equal(updateInfo.disabled, false);
-  assert.equal(updateInfo.latestVersion, "0.2.3");
-  assert.equal(updateInfo.updateAvailable, true);
+    assert.equal(updateInfo.disabled, false);
+    assert.equal(updateInfo.latestVersion, "0.3.1");
+    assert.equal(updateInfo.updateAvailable, true);
+  } finally {
+    fs.rmSync(packageRoot, {
+      recursive: true,
+      force: true
+    });
+  }
 });
 
 function createTempPluginPackage(version = "0.2.1", packageName = "traeclaw") {

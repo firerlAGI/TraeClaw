@@ -1,7 +1,7 @@
 {
   "id": "trae-ide",
   "name": "TraeClaw",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Delegate IDE tasks from OpenClaw to a local TraeClaw instance that drives the Trae desktop app.",
   "configSchema": {
     "type": "object",

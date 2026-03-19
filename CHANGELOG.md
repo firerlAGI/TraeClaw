@@ -10,6 +10,23 @@ All notable changes to this project will be documented in this file.
 - End-user FAQ in English and Chinese.
 - Extra README entry points for install, FAQ, and OpenClaw integration docs.
 
+## 0.3.0 - 2026-03-19
+
+### Added
+
+- `trae_open_project`, `trae_switch_mode`, and `trae_update_self` tools for the OpenClaw plugin.
+- Plugin-side npm update checks surfaced through `trae_status`.
+- Optional background auto-update flow for npm-installed OpenClaw plugin users.
+
+### Changed
+
+- Trae mode switching now waits through UI transition states and is more stable in real desktop automation.
+- OpenClaw install scripts, dev hot-plugin config, and examples now allow the new plugin update tool.
+
+### Notes
+
+- The self-update and auto-update flow is intended for npm-installed plugin users. Local linked installs may still require manual refresh.
+
 ## 0.2.1 - 2026-03-16
 
 ### Added
