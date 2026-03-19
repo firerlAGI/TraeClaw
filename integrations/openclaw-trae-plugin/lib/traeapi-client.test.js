@@ -1,20 +1,32 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const { EventEmitter } = require("node:events");
 const fs = require("node:fs");
 const http = require("node:http");
 const os = require("node:os");
 const path = require("node:path");
+const { PassThrough } = require("node:stream");
 const {
+  DEFAULT_AUTO_UPDATE_INTERVAL_MS,
+  DEFAULT_AUTO_UPDATE_START_DELAY_MS,
+  compareSemanticVersions,
+  DEFAULT_UPDATE_CHECK_TIMEOUT_MS,
+  DEFAULT_UPDATE_COMMAND_TIMEOUT_MS,
   TraeApiClient,
+  fetchLatestPublishedVersion,
   formatDelegateToolResult,
   formatNewChatToolResult,
   formatOpenProjectToolResult,
   formatStatusToolResult,
   formatSwitchModeToolResult,
+  formatUpdateToolResult,
   getBundledQuickstartDefaults,
+  readInstalledPluginPackageMetadata,
+  runAutoUpdateCycle,
   resolveReplyText,
   resolveBundledRuntimeRoot,
   resolvePluginRuntimeConfig,
+  schedulePluginAutoUpdate,
   stripDuplicateFinalText
 } = require("./traeapi-client");
 
@@ -42,6 +54,15 @@ test("resolvePluginRuntimeConfig reads plugin config from api.config", () => {
   assert.equal(config.autoStart, true);
   assert.equal(config.readyTimeoutMs, 1234);
   assert.equal(config.requestTimeoutMs, 5678);
+  assert.equal(config.checkForUpdates, true);
+  assert.equal(config.autoApplyUpdates, false);
+  assert.equal(config.openclawCommand, "openclaw");
+  assert.equal(config.updateCheckTimeoutMs, DEFAULT_UPDATE_CHECK_TIMEOUT_MS);
+  assert.equal(config.updateCommandTimeoutMs, DEFAULT_UPDATE_COMMAND_TIMEOUT_MS);
+  assert.equal(config.autoUpdateStartDelayMs, DEFAULT_AUTO_UPDATE_START_DELAY_MS);
+  assert.equal(config.autoUpdateIntervalMs, DEFAULT_AUTO_UPDATE_INTERVAL_MS);
+  assert.equal(config.packageName, "traeclaw");
+  assert.match(config.pluginVersion, /^\d+\.\d+\.\d+/);
 });
 
 test("stripDuplicateFinalText removes final reply from process chunks", () => {
@@ -54,10 +75,29 @@ test("formatters produce readable summaries", () => {
     gatewayReachable: true,
     ready: true,
     autoStarted: false,
+    updateInfo: {
+      currentVersion: "0.2.1",
+      latestVersion: "0.2.2",
+      updateAvailable: true,
+      autoApplyEnabled: true,
+      pendingRestart: true,
+      lastUpdateStatus: "updated",
+      lastUpdateSource: "auto",
+      lastUpdateCheckAt: "2026-03-19T07:00:00.000Z",
+      lastUpdateAttemptAt: "2026-03-19T07:00:05.000Z",
+      lastUpdateMessage: "Plugin updated successfully. Restart OpenClaw Gateway to load the new version.",
+      disabled: false,
+      errorMessage: ""
+    },
     healthSummary: "ok",
     readySummary: "cdp"
   });
   assert.equal(statusText.includes("Automation ready: yes"), true);
+  assert.equal(statusText.includes("Plugin version: 0.2.1"), true);
+  assert.equal(statusText.includes("Latest plugin version: 0.2.2"), true);
+  assert.equal(statusText.includes("Update available: yes"), true);
+  assert.equal(statusText.includes("Auto-update: enabled"), true);
+  assert.equal(statusText.includes("Restart OpenClaw Gateway: yes"), true);
 
   const delegateText = formatDelegateToolResult({
     data: {
@@ -139,6 +179,56 @@ test("formatters produce readable summaries", () => {
   assert.equal(switchModeText.includes("Trae mode switched."), true);
   assert.equal(switchModeText.includes("Current mode: ide"), true);
   assert.equal(switchModeText.includes("Quickstart triggered: yes"), true);
+
+  const updateText = formatUpdateToolResult({
+    pluginId: "trae-ide",
+    packageName: "traeclaw",
+    previousVersion: "0.2.1",
+    installedVersion: "0.2.2",
+    latestVersion: "0.2.2",
+    changed: true,
+    alreadyLatest: false,
+    restartRequired: true,
+    warningMessage: "",
+    commandOutputSummary: "updated trae-ide"
+  });
+  assert.equal(updateText.includes("TraeClaw plugin updated."), true);
+  assert.equal(updateText.includes("Installed version: 0.2.2"), true);
+  assert.equal(updateText.includes("Restart OpenClaw Gateway: yes"), true);
+});
+
+test("compareSemanticVersions handles stable and prerelease versions", () => {
+  assert.equal(compareSemanticVersions("0.2.2", "0.2.1") > 0, true);
+  assert.equal(compareSemanticVersions("1.0.0", "1.0.0-beta.1") > 0, true);
+  assert.equal(compareSemanticVersions("1.0.0-beta.2", "1.0.0-beta.10") < 0, true);
+  assert.equal(compareSemanticVersions("1.0.0", "1.0.0"), 0);
+});
+
+test("readInstalledPluginPackageMetadata reads the package name and version", () => {
+  const metadata = readInstalledPluginPackageMetadata();
+  assert.equal(metadata.packageName, "traeclaw");
+  assert.match(metadata.version, /^\d+\.\d+\.\d+/);
+});
+
+test("fetchLatestPublishedVersion reads dist-tags.latest from the npm registry payload", async () => {
+  const result = await fetchLatestPublishedVersion({
+    packageName: "traeclaw",
+    timeoutMs: 100,
+    fetchImpl: async () => ({
+      ok: true,
+      status: 200,
+      async text() {
+        return JSON.stringify({
+          "dist-tags": {
+            latest: "0.2.9"
+          }
+        });
+      }
+    })
+  });
+
+  assert.equal(result.packageName, "traeclaw");
+  assert.equal(result.latestVersion, "0.2.9");
 });
 
 test("resolveReplyText falls back to the last chunk when response text is empty", () => {
@@ -406,6 +496,371 @@ test("delegateTask opens the requested project before sending the task", async (
   assert.equal(openedProjectPath, "/tmp/sample-project");
   assert.equal(requestedBody.content, "Inspect this project");
   assert.equal(result.data.result.response.text, "delegate ok");
+});
+
+test("getStatus includes plugin update details without affecting readiness checks", async () => {
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    checkForUpdates: true,
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    updateCheckTimeoutMs: 250,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500
+  });
+
+  client.ensureReady = async () => ({
+    ready: true,
+    autoStarted: false,
+    readyResponse: {
+      json: {
+        data: {
+          automation: {
+            mode: "ide"
+          }
+        }
+      }
+    }
+  });
+  client.getHealth = async () => ({
+    ok: true,
+    json: {
+      data: {
+        status: "ok"
+      }
+    }
+  });
+  client.getPluginUpdateInfo = async () => ({
+    packageName: "traeclaw",
+    currentVersion: "0.2.1",
+    latestVersion: "0.2.2",
+    updateAvailable: true,
+    disabled: false,
+    errorMessage: ""
+  });
+
+  const status = await client.getStatus();
+
+  assert.equal(status.ready, true);
+  assert.equal(status.gatewayReachable, true);
+  assert.equal(status.updateInfo.latestVersion, "0.2.2");
+  assert.equal(status.updateInfo.updateAvailable, true);
+});
+
+test("getPluginUpdateInfo reports disabled checks without hitting the registry", async () => {
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    checkForUpdates: false,
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    updateCheckTimeoutMs: 250,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500
+  });
+
+  client.fetchLatestPublishedVersion = async () => {
+    throw new Error("should not be called");
+  };
+
+  const updateInfo = await client.getPluginUpdateInfo({
+    forceRefresh: true
+  });
+
+  assert.equal(updateInfo.disabled, true);
+  assert.equal(updateInfo.currentVersion, "0.2.1");
+});
+
+test("getPluginUpdateInfo reports when a newer npm version is available", async () => {
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    checkForUpdates: true,
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    updateCheckTimeoutMs: 250,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500
+  });
+
+  client.fetchLatestPublishedVersion = async () => ({
+    packageName: "traeclaw",
+    latestVersion: "0.2.3"
+  });
+
+  const updateInfo = await client.getPluginUpdateInfo({
+    forceRefresh: true
+  });
+
+  assert.equal(updateInfo.disabled, false);
+  assert.equal(updateInfo.latestVersion, "0.2.3");
+  assert.equal(updateInfo.updateAvailable, true);
+});
+
+function createTempPluginPackage(version = "0.2.1", packageName = "traeclaw") {
+  const packageRoot = fs.mkdtempSync(path.join(os.tmpdir(), "trae-plugin-package-"));
+  fs.writeFileSync(
+    path.join(packageRoot, "package.json"),
+    `${JSON.stringify({ name: packageName, version }, null, 2)}\n`,
+    "utf8"
+  );
+  return packageRoot;
+}
+
+function createMockSpawn(onSpawn) {
+  return (command, args, options) => {
+    const child = new EventEmitter();
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    child.kill = () => {};
+
+    process.nextTick(async () => {
+      try {
+        await onSpawn({
+          command,
+          args,
+          options,
+          child
+        });
+      } catch (error) {
+        child.emit("error", error);
+      }
+    });
+
+    return child;
+  };
+}
+
+test("updateSelf returns early when the installed plugin is already at the latest version", async () => {
+  const packageRoot = createTempPluginPackage("0.2.1");
+  let spawnCalled = false;
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    checkForUpdates: true,
+    packageRoot,
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    openclawCommand: "openclaw",
+    updateCheckTimeoutMs: 250,
+    updateCommandTimeoutMs: 500,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500,
+    spawnImpl: () => {
+      spawnCalled = true;
+      throw new Error("spawn should not be called");
+    }
+  });
+
+  client.fetchLatestPublishedVersion = async () => ({
+    packageName: "traeclaw",
+    latestVersion: "0.2.1"
+  });
+
+  try {
+    const result = await client.updateSelf();
+    assert.equal(result.alreadyLatest, true);
+    assert.equal(result.changed, false);
+    assert.equal(result.installedVersion, "0.2.1");
+    assert.equal(spawnCalled, false);
+  } finally {
+    fs.rmSync(packageRoot, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("updateSelf runs openclaw plugins update trae-ide and reports the new installed version", async () => {
+  const packageRoot = createTempPluginPackage("0.2.1");
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    checkForUpdates: true,
+    packageRoot,
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    openclawCommand: "/usr/local/bin/openclaw",
+    updateCheckTimeoutMs: 250,
+    updateCommandTimeoutMs: 500,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500,
+    spawnImpl: createMockSpawn(async ({ command, args, options, child }) => {
+      assert.equal(command, "/usr/local/bin/openclaw");
+      assert.deepEqual(args, ["plugins", "update", "trae-ide"]);
+      assert.equal(Boolean(options.shell), false);
+      fs.writeFileSync(
+        path.join(packageRoot, "package.json"),
+        `${JSON.stringify({ name: "traeclaw", version: "0.2.2" }, null, 2)}\n`,
+        "utf8"
+      );
+      child.stdout.end("updated trae-ide\n");
+      child.emit("close", 0, null);
+    })
+  });
+
+  client.fetchLatestPublishedVersion = async () => ({
+    packageName: "traeclaw",
+    latestVersion: "0.2.2"
+  });
+
+  try {
+    const result = await client.updateSelf();
+    assert.equal(result.changed, true);
+    assert.equal(result.alreadyLatest, true);
+    assert.equal(result.previousVersion, "0.2.1");
+    assert.equal(result.installedVersion, "0.2.2");
+    assert.equal(result.restartRequired, true);
+    assert.equal(result.commandOutputSummary.includes("updated trae-ide"), true);
+  } finally {
+    fs.rmSync(packageRoot, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("runAutoUpdateCycle updates the runtime state and marks restart required after a background update", async () => {
+  const packageRoot = createTempPluginPackage("0.2.1");
+  let updateSelfCalled = 0;
+  const config = {
+    packageRoot,
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    autoApplyUpdates: true,
+    autoUpdateStartDelayMs: 0,
+    autoUpdateIntervalMs: 0
+  };
+
+  try {
+    const cycle = await runAutoUpdateCycle(config, {
+      createClient() {
+        return {
+          async updateSelf() {
+            updateSelfCalled += 1;
+            fs.writeFileSync(
+              path.join(packageRoot, "package.json"),
+              `${JSON.stringify({ name: "traeclaw", version: "0.2.2" }, null, 2)}\n`,
+              "utf8"
+            );
+            return {
+              pluginId: "trae-ide",
+              packageName: "traeclaw",
+              previousVersion: "0.2.1",
+              installedVersion: "0.2.2",
+              latestVersion: "0.2.2",
+              changed: true,
+              alreadyLatest: true,
+              restartRequired: true,
+              warningMessage: "",
+              commandOutputSummary: "updated trae-ide"
+            };
+          }
+        };
+      }
+    });
+
+    assert.equal(cycle.ok, true);
+    assert.equal(updateSelfCalled, 1);
+
+    const client = new TraeApiClient({
+      baseUrl: "http://127.0.0.1:8787",
+      token: "",
+      autoStart: false,
+      checkForUpdates: true,
+      autoApplyUpdates: true,
+      packageRoot,
+      packageName: "traeclaw",
+      pluginVersion: "0.2.1",
+      updateCheckTimeoutMs: 250,
+      updateCommandTimeoutMs: 500,
+      quickstartCommand: "",
+      quickstartCwd: "",
+      readyTimeoutMs: 500,
+      requestTimeoutMs: 500
+    });
+    client.fetchLatestPublishedVersion = async () => ({
+      packageName: "traeclaw",
+      latestVersion: "0.2.2"
+    });
+
+    const updateInfo = await client.getPluginUpdateInfo({
+      forceRefresh: true
+    });
+    assert.equal(updateInfo.autoApplyEnabled, true);
+    assert.equal(updateInfo.pendingRestart, true);
+    assert.equal(updateInfo.lastUpdateStatus, "updated");
+    assert.equal(updateInfo.lastUpdateSource, "auto");
+  } finally {
+    fs.rmSync(packageRoot, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("schedulePluginAutoUpdate schedules a single background cycle when auto-apply is enabled", async () => {
+  const calls = [];
+  const config = {
+    packageRoot: "/tmp/trae-auto-schedule",
+    packageName: "traeclaw",
+    pluginVersion: "0.2.1",
+    autoApplyUpdates: true,
+    autoUpdateStartDelayMs: 0,
+    autoUpdateIntervalMs: 0
+  };
+
+  await new Promise((resolve) => {
+    schedulePluginAutoUpdate(config, {
+      createClient() {
+        return {
+          async updateSelf() {
+            calls.push("update");
+            return {
+              changed: false,
+              alreadyLatest: true,
+              installedVersion: "0.2.1",
+              latestVersion: "0.2.1",
+              previousVersion: "0.2.1",
+              packageName: "traeclaw",
+              pluginId: "trae-ide",
+              restartRequired: false,
+              warningMessage: "",
+              commandOutputSummary: ""
+            };
+          }
+        };
+      },
+      setTimeoutImpl(handler, delayMs) {
+        calls.push(`timer:${delayMs}`);
+        process.nextTick(async () => {
+          await handler();
+          resolve();
+        });
+        return {
+          unref() {}
+        };
+      }
+    });
+  });
+
+  assert.deepEqual(calls, ["timer:0", "update"]);
 });
 
 test("switchMode posts the requested mode to the gateway without a readiness preflight", async () => {

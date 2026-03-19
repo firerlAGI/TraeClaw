@@ -49,4 +49,5 @@ test("buildOpenClawDevConfig keeps plugin mirror and dev repo root separated", (
   assert.equal(config.plugins.load.paths[0], "/tmp/trae-dev/.runtime/openclaw-plugin-hot/trae-ide");
   assert.equal(config.plugins.entries["trae-ide"].config.quickstartCwd, "/tmp/trae-dev");
   assert.equal(config.plugins.entries["trae-ide"].config.quickstartCommand, "\"/tmp/trae-dev/start-traeapi.command\"");
+  assert.equal(config.agents.list[0].tools.alsoAllow.includes("trae_update_self"), true);
 });

@@ -6,6 +6,15 @@ const PLUGIN_ID = "trae-ide";
 const DEFAULT_BASE_URL = "http://127.0.0.1:8787";
 const DEFAULT_READY_TIMEOUT_MS = 45000;
 const DEFAULT_REQUEST_TIMEOUT_MS = 180000;
+const DEFAULT_UPDATE_CHECK_TIMEOUT_MS = 2500;
+const DEFAULT_UPDATE_COMMAND_TIMEOUT_MS = 120000;
+const DEFAULT_AUTO_UPDATE_START_DELAY_MS = 30000;
+const DEFAULT_AUTO_UPDATE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+const DEFAULT_NPM_REGISTRY_BASE_URL = "https://registry.npmjs.org";
+const UPDATE_CHECK_SUCCESS_TTL_MS = 6 * 60 * 60 * 1000;
+const UPDATE_CHECK_FAILURE_TTL_MS = 15 * 60 * 1000;
+const pluginUpdateCache = new Map();
+const pluginRuntimeStates = new Map();
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -32,13 +41,238 @@ function normalizeInteger(value, fallback) {
   return Number.isFinite(numeric) && numeric > 0 ? Math.trunc(numeric) : fallback;
 }
 
+function normalizeNonNegativeInteger(value, fallback) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? Math.trunc(numeric) : fallback;
+}
+
 function normalizeBaseUrl(value) {
   const normalized = String(value || DEFAULT_BASE_URL).trim() || DEFAULT_BASE_URL;
   return normalized.replace(/\/+$/, "");
 }
 
+function normalizeOptionalString(value) {
+  const normalized = String(value || "").trim();
+  return normalized || "";
+}
+
 function quoteShellPath(value) {
   return `"${String(value || "").replaceAll("\\\"", "\\\\\\\"")}"`;
+}
+
+function readInstalledPluginPackageMetadata(options = {}) {
+  const packageRoot = path.resolve(options.packageRoot || path.join(__dirname, ".."));
+  const packageJsonPath = path.join(packageRoot, "package.json");
+
+  try {
+    const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, "utf8"));
+    return {
+      packageName: normalizeOptionalString(packageJson.name),
+      version: normalizeOptionalString(packageJson.version)
+    };
+  } catch {
+    return {
+      packageName: "",
+      version: ""
+    };
+  }
+}
+
+function parseSemanticVersion(value) {
+  const normalized = normalizeOptionalString(value).replace(/^v/i, "");
+  const match = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/.exec(normalized);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    major: Number(match[1]),
+    minor: Number(match[2]),
+    patch: Number(match[3]),
+    prerelease: match[4] ? match[4].split(".") : []
+  };
+}
+
+function comparePrereleaseIdentifiers(leftIdentifiers, rightIdentifiers) {
+  const maxLength = Math.max(leftIdentifiers.length, rightIdentifiers.length);
+  for (let index = 0; index < maxLength; index += 1) {
+    const left = leftIdentifiers[index];
+    const right = rightIdentifiers[index];
+
+    if (left === undefined) {
+      return -1;
+    }
+    if (right === undefined) {
+      return 1;
+    }
+
+    const leftIsNumeric = /^\d+$/.test(left);
+    const rightIsNumeric = /^\d+$/.test(right);
+    if (leftIsNumeric && rightIsNumeric) {
+      const numericComparison = Number(left) - Number(right);
+      if (numericComparison !== 0) {
+        return numericComparison > 0 ? 1 : -1;
+      }
+      continue;
+    }
+    if (leftIsNumeric !== rightIsNumeric) {
+      return leftIsNumeric ? -1 : 1;
+    }
+
+    const lexicalComparison = left.localeCompare(right);
+    if (lexicalComparison !== 0) {
+      return lexicalComparison > 0 ? 1 : -1;
+    }
+  }
+
+  return 0;
+}
+
+function compareSemanticVersions(leftVersion, rightVersion) {
+  const left = parseSemanticVersion(leftVersion);
+  const right = parseSemanticVersion(rightVersion);
+  if (!left || !right) {
+    const normalizedLeft = normalizeOptionalString(leftVersion);
+    const normalizedRight = normalizeOptionalString(rightVersion);
+    if (normalizedLeft === normalizedRight) {
+      return 0;
+    }
+    return normalizedLeft.localeCompare(normalizedRight);
+  }
+
+  for (const field of ["major", "minor", "patch"]) {
+    if (left[field] !== right[field]) {
+      return left[field] > right[field] ? 1 : -1;
+    }
+  }
+
+  const leftHasPrerelease = left.prerelease.length > 0;
+  const rightHasPrerelease = right.prerelease.length > 0;
+  if (!leftHasPrerelease && !rightHasPrerelease) {
+    return 0;
+  }
+  if (!leftHasPrerelease) {
+    return 1;
+  }
+  if (!rightHasPrerelease) {
+    return -1;
+  }
+
+  return comparePrereleaseIdentifiers(left.prerelease, right.prerelease);
+}
+
+async function fetchJsonWithTimeout(url, options = {}) {
+  const controller = new AbortController();
+  const timeoutMs = normalizeInteger(options.timeoutMs, DEFAULT_REQUEST_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await (options.fetchImpl || fetch)(url, {
+      method: options.method || "GET",
+      headers: options.headers,
+      signal: controller.signal
+    });
+    const text = await response.text();
+    return {
+      status: response.status,
+      ok: response.ok,
+      text,
+      json: text ? JSON.parse(text) : null
+    };
+  } catch (error) {
+    if (error.name === "AbortError") {
+      throw new Error(`Timed out while requesting ${url}`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchLatestPublishedVersion(options = {}) {
+  const packageName = normalizeOptionalString(options.packageName);
+  if (!packageName) {
+    throw new Error("Package name is required for update checks");
+  }
+
+  const registryBaseUrl = normalizeBaseUrl(options.registryBaseUrl || DEFAULT_NPM_REGISTRY_BASE_URL);
+  const encodedPackageName = packageName
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const response = await fetchJsonWithTimeout(`${registryBaseUrl}/${encodedPackageName}`, {
+    timeoutMs: normalizeInteger(options.timeoutMs, DEFAULT_UPDATE_CHECK_TIMEOUT_MS),
+    fetchImpl: options.fetchImpl,
+    headers: {
+      Accept: "application/json"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`npm registry returned status ${response.status}`);
+  }
+
+  const latestVersion = normalizeOptionalString(response.json?.["dist-tags"]?.latest);
+  if (!latestVersion) {
+    throw new Error("npm registry response did not include dist-tags.latest");
+  }
+
+  return {
+    packageName,
+    latestVersion
+  };
+}
+
+function summarizeCommandOutput(stdout, stderr) {
+  const lines = [normalizeOptionalString(stdout), normalizeOptionalString(stderr)].filter(Boolean);
+  return lines.join("\n").trim();
+}
+
+function getPluginRuntimeStateKey(options = {}) {
+  return path.resolve(options.packageRoot || path.join(__dirname, ".."));
+}
+
+function getPluginRuntimeState(options = {}) {
+  const stateKey = getPluginRuntimeStateKey(options);
+  if (!pluginRuntimeStates.has(stateKey)) {
+    pluginRuntimeStates.set(stateKey, {
+      stateKey,
+      pendingRestart: false,
+      autoApplyEnabled: false,
+      autoUpdateScheduled: false,
+      autoUpdateTimer: null,
+      autoUpdateInFlight: null,
+      lastUpdateStatus: "",
+      lastUpdateMessage: "",
+      lastUpdateSource: "",
+      lastUpdateCheckAt: "",
+      lastUpdateAttemptAt: "",
+      lastKnownCurrentVersion: "",
+      lastKnownLatestVersion: ""
+    });
+  }
+  return pluginRuntimeStates.get(stateKey);
+}
+
+function updatePluginRuntimeState(options = {}, patch = {}) {
+  const state = getPluginRuntimeState(options);
+  Object.assign(state, patch);
+  return state;
+}
+
+function snapshotPluginRuntimeState(options = {}) {
+  const state = getPluginRuntimeState(options);
+  return {
+    pendingRestart: state.pendingRestart === true,
+    autoApplyEnabled: state.autoApplyEnabled === true,
+    lastUpdateStatus: normalizeOptionalString(state.lastUpdateStatus),
+    lastUpdateMessage: normalizeOptionalString(state.lastUpdateMessage),
+    lastUpdateSource: normalizeOptionalString(state.lastUpdateSource),
+    lastUpdateCheckAt: normalizeOptionalString(state.lastUpdateCheckAt),
+    lastUpdateAttemptAt: normalizeOptionalString(state.lastUpdateAttemptAt),
+    lastKnownCurrentVersion: normalizeOptionalString(state.lastKnownCurrentVersion),
+    lastKnownLatestVersion: normalizeOptionalString(state.lastKnownLatestVersion)
+  };
 }
 
 function resolveBundledRuntimeRoot(options = {}) {
@@ -123,16 +357,48 @@ function readPluginConfig(api) {
 function resolvePluginRuntimeConfig(api) {
   const rawConfig = readPluginConfig(api);
   const defaultQuickstart = getBundledQuickstartDefaults();
-  return {
+  const packageRoot = path.resolve(__dirname, "..");
+  const packageMetadata = readInstalledPluginPackageMetadata({
+    packageRoot
+  });
+  const resolvedConfig = {
     pluginId: PLUGIN_ID,
+    packageRoot,
+    packageName: packageMetadata.packageName || "traeclaw",
+    pluginVersion: packageMetadata.version,
     baseUrl: normalizeBaseUrl(rawConfig.baseUrl || process.env.TRAE_API_BASE_URL || DEFAULT_BASE_URL),
     token: String(rawConfig.token || process.env.TRAE_API_TOKEN || "").trim(),
     autoStart: normalizeBoolean(rawConfig.autoStart ?? process.env.TRAE_API_AUTOSTART, false),
+    openclawCommand:
+      normalizeOptionalString(rawConfig.openclawCommand || process.env.TRAE_API_OPENCLAW_COMMAND || process.env.OPENCLAW_COMMAND) ||
+      "openclaw",
     quickstartCommand: String(rawConfig.quickstartCommand || process.env.TRAE_API_QUICKSTART_COMMAND || defaultQuickstart.quickstartCommand).trim(),
     quickstartCwd: String(rawConfig.quickstartCwd || process.env.TRAE_API_QUICKSTART_CWD || defaultQuickstart.quickstartCwd).trim(),
     readyTimeoutMs: normalizeInteger(rawConfig.readyTimeoutMs || process.env.TRAE_API_READY_TIMEOUT_MS, DEFAULT_READY_TIMEOUT_MS),
-    requestTimeoutMs: normalizeInteger(rawConfig.requestTimeoutMs || process.env.TRAE_API_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS)
+    requestTimeoutMs: normalizeInteger(rawConfig.requestTimeoutMs || process.env.TRAE_API_REQUEST_TIMEOUT_MS, DEFAULT_REQUEST_TIMEOUT_MS),
+    checkForUpdates: normalizeBoolean(rawConfig.checkForUpdates ?? process.env.TRAE_API_UPDATE_CHECK_ENABLED, true),
+    autoApplyUpdates: normalizeBoolean(rawConfig.autoApplyUpdates ?? process.env.TRAE_API_AUTO_APPLY_UPDATES, false),
+    updateCheckTimeoutMs: normalizeInteger(
+      rawConfig.updateCheckTimeoutMs || process.env.TRAE_API_UPDATE_CHECK_TIMEOUT_MS,
+      DEFAULT_UPDATE_CHECK_TIMEOUT_MS
+    ),
+    updateCommandTimeoutMs: normalizeInteger(
+      rawConfig.updateCommandTimeoutMs || process.env.TRAE_API_UPDATE_COMMAND_TIMEOUT_MS,
+      DEFAULT_UPDATE_COMMAND_TIMEOUT_MS
+    ),
+    autoUpdateStartDelayMs: normalizeNonNegativeInteger(
+      rawConfig.autoUpdateStartDelayMs ?? process.env.TRAE_API_AUTO_UPDATE_START_DELAY_MS,
+      DEFAULT_AUTO_UPDATE_START_DELAY_MS
+    ),
+    autoUpdateIntervalMs: normalizeNonNegativeInteger(
+      rawConfig.autoUpdateIntervalMs ?? process.env.TRAE_API_AUTO_UPDATE_INTERVAL_MS,
+      DEFAULT_AUTO_UPDATE_INTERVAL_MS
+    )
   };
+  updatePluginRuntimeState(resolvedConfig, {
+    autoApplyEnabled: resolvedConfig.autoApplyUpdates === true
+  });
+  return resolvedConfig;
 }
 
 function sleep(ms) {
@@ -204,9 +470,40 @@ function formatStatusToolResult(status) {
     `Gateway reachable: ${status.gatewayReachable ? "yes" : "no"}`,
     `Automation ready: ${status.ready ? "yes" : "no"}`
   ];
+  const updateInfo = status.updateInfo || {};
 
   if (status.autoStarted) {
     lines.push("Auto-start attempted: yes");
+  }
+  if (updateInfo.currentVersion) {
+    lines.push(`Plugin version: ${updateInfo.currentVersion}`);
+  }
+  lines.push(`Auto-update: ${updateInfo.autoApplyEnabled ? "enabled" : "disabled"}`);
+  if (updateInfo.disabled) {
+    lines.push("Update check: disabled");
+  } else if (updateInfo.latestVersion) {
+    lines.push(`Latest plugin version: ${updateInfo.latestVersion}`);
+    lines.push(`Update available: ${updateInfo.updateAvailable ? "yes" : "no"}`);
+  } else if (updateInfo.errorMessage) {
+    lines.push("Update check: unavailable");
+  }
+  if (updateInfo.lastUpdateStatus) {
+    lines.push(`Last update status: ${updateInfo.lastUpdateStatus}`);
+  }
+  if (updateInfo.lastUpdateSource) {
+    lines.push(`Last update source: ${updateInfo.lastUpdateSource}`);
+  }
+  if (updateInfo.lastUpdateCheckAt) {
+    lines.push(`Last update check: ${updateInfo.lastUpdateCheckAt}`);
+  }
+  if (updateInfo.lastUpdateAttemptAt) {
+    lines.push(`Last update attempt: ${updateInfo.lastUpdateAttemptAt}`);
+  }
+  if (updateInfo.pendingRestart) {
+    lines.push("Restart OpenClaw Gateway: yes");
+  }
+  if (updateInfo.lastUpdateMessage) {
+    lines.push(`Update detail: ${updateInfo.lastUpdateMessage}`);
   }
   if (status.healthSummary) {
     lines.push(`Health: ${status.healthSummary}`);
@@ -349,6 +646,34 @@ function formatSwitchModeToolResult(result) {
   return lines.join("\n");
 }
 
+function formatUpdateToolResult(result) {
+  const lines = [
+    result.alreadyLatest ? "TraeClaw plugin is already up to date." : result.changed ? "TraeClaw plugin updated." : "TraeClaw plugin update finished.",
+    `Plugin: ${result.pluginId || PLUGIN_ID}`,
+    `Package: ${result.packageName || "unknown"}`,
+    `Installed version: ${result.installedVersion || "unknown"}`
+  ];
+
+  if (result.previousVersion) {
+    lines.push(`Previous version: ${result.previousVersion}`);
+  }
+  if (result.latestVersion) {
+    lines.push(`Latest plugin version: ${result.latestVersion}`);
+  }
+  lines.push(`Changed: ${result.changed ? "yes" : "no"}`);
+  if (result.restartRequired) {
+    lines.push("Restart OpenClaw Gateway: yes");
+  }
+  if (result.warningMessage) {
+    lines.push(`Warning: ${result.warningMessage}`);
+  }
+  if (result.commandOutputSummary) {
+    lines.push(`CLI detail: ${result.commandOutputSummary}`);
+  }
+
+  return lines.join("\n");
+}
+
 class TraeApiClient {
   constructor(config) {
     this.config = config;
@@ -375,6 +700,83 @@ class TraeApiClient {
     } finally {
       clearTimeout(timeout);
     }
+  }
+
+  getInstalledPluginMetadata() {
+    const installed = readInstalledPluginPackageMetadata({
+      packageRoot: this.config.packageRoot
+    });
+    return {
+      packageName: installed.packageName || normalizeOptionalString(this.config.packageName) || "traeclaw",
+      version: installed.version || normalizeOptionalString(this.config.pluginVersion)
+    };
+  }
+
+  async runCommand(command, args = [], options = {}) {
+    const timeoutMs = normalizeInteger(options.timeoutMs, this.config.updateCommandTimeoutMs || DEFAULT_UPDATE_COMMAND_TIMEOUT_MS);
+    const spawnImpl = options.spawnImpl || this.config.spawnImpl || spawn;
+
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      let stdout = "";
+      let stderr = "";
+      const child = spawnImpl(command, args, {
+        cwd: options.cwd || process.cwd(),
+        env: options.env || process.env,
+        shell: options.shell === true,
+        windowsHide: process.platform === "win32"
+      });
+
+      const finish = (callback) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        clearTimeout(timeout);
+        callback();
+      };
+
+      if (child.stdout && typeof child.stdout.on === "function") {
+        child.stdout.on("data", (chunk) => {
+          stdout += chunk.toString("utf8");
+        });
+      }
+      if (child.stderr && typeof child.stderr.on === "function") {
+        child.stderr.on("data", (chunk) => {
+          stderr += chunk.toString("utf8");
+        });
+      }
+
+      child.on("error", (error) => {
+        finish(() => reject(error));
+      });
+      child.on("close", (exitCode, signal) => {
+        finish(() =>
+          resolve({
+            command,
+            args,
+            exitCode: Number.isInteger(exitCode) ? exitCode : 1,
+            signal,
+            stdout: normalizeOptionalString(stdout),
+            stderr: normalizeOptionalString(stderr)
+          })
+        );
+      });
+
+      const timeout = setTimeout(() => {
+        if (typeof child.kill === "function") {
+          child.kill("SIGTERM");
+        }
+        finish(() => reject(new Error(`Timed out while running ${command} ${args.join(" ")}`.trim())));
+      }, timeoutMs);
+    });
+  }
+
+  async runOpenClawCommand(args = [], options = {}) {
+    return this.runCommand(this.config.openclawCommand || "openclaw", args, {
+      ...options,
+      shell: process.platform === "win32"
+    });
   }
 
   async startQuickstart(options = {}) {
@@ -472,8 +874,201 @@ class TraeApiClient {
     };
   }
 
+  async fetchLatestPublishedVersion(options = {}) {
+    return fetchLatestPublishedVersion({
+      packageName: options.packageName || this.config.packageName,
+      timeoutMs: options.timeoutMs || this.config.updateCheckTimeoutMs,
+      fetchImpl: options.fetchImpl || this.config.fetchImpl
+    });
+  }
+
+  async getPluginUpdateInfo({ forceRefresh = false } = {}) {
+    const installed = this.getInstalledPluginMetadata();
+    const packageName = installed.packageName;
+    const currentVersion = installed.version;
+    const runtimeSnapshot = snapshotPluginRuntimeState(this.config);
+    if (!this.config.checkForUpdates) {
+      return {
+        packageName,
+        currentVersion,
+        latestVersion: "",
+        updateAvailable: false,
+        disabled: true,
+        errorMessage: "",
+        ...runtimeSnapshot
+      };
+    }
+
+    const cacheKey = `${packageName}@${currentVersion}`;
+    const cachedEntry = pluginUpdateCache.get(cacheKey);
+    const nowMs = Date.now();
+    if (cachedEntry && forceRefresh !== true && cachedEntry.expiresAtMs > nowMs) {
+      return {
+        ...cachedEntry.value,
+        ...runtimeSnapshot
+      };
+    }
+
+    try {
+      const latest = await this.fetchLatestPublishedVersion({
+        packageName,
+        timeoutMs: this.config.updateCheckTimeoutMs
+      });
+      const updateInfo = {
+        packageName,
+        currentVersion,
+        latestVersion: latest.latestVersion,
+        updateAvailable: currentVersion ? compareSemanticVersions(latest.latestVersion, currentVersion) > 0 : false,
+        disabled: false,
+        errorMessage: ""
+      };
+      pluginUpdateCache.set(cacheKey, {
+        value: updateInfo,
+        expiresAtMs: nowMs + UPDATE_CHECK_SUCCESS_TTL_MS
+      });
+      return {
+        ...updateInfo,
+        ...runtimeSnapshot
+      };
+    } catch (error) {
+      const updateInfo = {
+        packageName,
+        currentVersion,
+        latestVersion: "",
+        updateAvailable: false,
+        disabled: false,
+        errorMessage: error.message || "Update check failed"
+      };
+      pluginUpdateCache.set(cacheKey, {
+        value: updateInfo,
+        expiresAtMs: nowMs + UPDATE_CHECK_FAILURE_TTL_MS
+      });
+      return {
+        ...updateInfo,
+        ...runtimeSnapshot
+      };
+    }
+  }
+
+  async updateSelf({ force = false, source = "manual" } = {}) {
+    const installedBefore = this.getInstalledPluginMetadata();
+    const startedAt = new Date().toISOString();
+    updatePluginRuntimeState(this.config, {
+      lastUpdateCheckAt: startedAt,
+      lastUpdateAttemptAt: startedAt,
+      lastUpdateStatus: "checking",
+      lastUpdateMessage: "Checking for plugin updates.",
+      lastUpdateSource: source,
+      autoApplyEnabled: this.config.autoApplyUpdates === true,
+      lastKnownCurrentVersion: installedBefore.version
+    });
+    let latestVersion = "";
+
+    try {
+      latestVersion = (await this.fetchLatestPublishedVersion({
+        packageName: installedBefore.packageName,
+        timeoutMs: this.config.updateCheckTimeoutMs
+      })).latestVersion;
+    } catch {}
+
+    if (
+      force !== true &&
+      latestVersion &&
+      installedBefore.version &&
+      compareSemanticVersions(latestVersion, installedBefore.version) <= 0
+    ) {
+      const result = {
+        pluginId: PLUGIN_ID,
+        packageName: installedBefore.packageName,
+        previousVersion: installedBefore.version,
+        installedVersion: installedBefore.version,
+        latestVersion,
+        changed: false,
+        alreadyLatest: true,
+        restartRequired: false,
+        warningMessage: "",
+        commandOutputSummary: ""
+      };
+      updatePluginRuntimeState(this.config, {
+        pendingRestart: false,
+        lastUpdateStatus: "up_to_date",
+        lastUpdateMessage: "Plugin is already at the latest published version.",
+        lastKnownCurrentVersion: result.installedVersion,
+        lastKnownLatestVersion: latestVersion
+      });
+      return result;
+    }
+
+    try {
+      const commandResult = await this.runOpenClawCommand(["plugins", "update", PLUGIN_ID], {
+        timeoutMs: this.config.updateCommandTimeoutMs
+      });
+      const commandOutputSummary = summarizeCommandOutput(commandResult.stdout, commandResult.stderr);
+      if (commandResult.exitCode !== 0) {
+        throw new Error(
+          commandOutputSummary
+            ? `openclaw plugins update ${PLUGIN_ID} failed.\n${commandOutputSummary}`
+            : `openclaw plugins update ${PLUGIN_ID} failed with exit code ${commandResult.exitCode}`
+        );
+      }
+
+      pluginUpdateCache.clear();
+      const installedAfter = this.getInstalledPluginMetadata();
+      if (!latestVersion) {
+        try {
+          latestVersion = (await this.fetchLatestPublishedVersion({
+            packageName: installedAfter.packageName,
+            timeoutMs: this.config.updateCheckTimeoutMs
+          })).latestVersion;
+        } catch {}
+      }
+
+      const changed =
+        Boolean(installedAfter.version && installedBefore.version && installedAfter.version !== installedBefore.version) ||
+        Boolean(installedAfter.version && !installedBefore.version);
+      const alreadyLatest =
+        Boolean(latestVersion && installedAfter.version) && compareSemanticVersions(latestVersion, installedAfter.version) <= 0;
+      const warningMessage =
+        !changed && latestVersion && installedBefore.version && compareSemanticVersions(latestVersion, installedBefore.version) > 0
+          ? "Installed version did not change. This plugin may be linked from a local path and may need a manual reinstall."
+          : "";
+
+      const result = {
+        pluginId: PLUGIN_ID,
+        packageName: installedAfter.packageName || installedBefore.packageName,
+        previousVersion: installedBefore.version,
+        installedVersion: installedAfter.version || installedBefore.version,
+        latestVersion,
+        changed,
+        alreadyLatest,
+        restartRequired: changed,
+        warningMessage,
+        commandOutputSummary
+      };
+      updatePluginRuntimeState(this.config, {
+        pendingRestart: changed === true,
+        lastUpdateStatus: changed ? "updated" : alreadyLatest ? "up_to_date" : "unchanged",
+        lastUpdateMessage:
+          warningMessage || (changed ? "Plugin updated successfully. Restart OpenClaw Gateway to load the new version." : "Plugin update finished."),
+        lastKnownCurrentVersion: result.installedVersion,
+        lastKnownLatestVersion: latestVersion
+      });
+      return result;
+    } catch (error) {
+      updatePluginRuntimeState(this.config, {
+        lastUpdateStatus: "failed",
+        lastUpdateMessage: error.message || "Plugin update failed",
+        lastKnownLatestVersion: latestVersion
+      });
+      throw error;
+    }
+  }
+
   async getStatus({ allowAutoStart = false } = {}) {
-    const readiness = await this.ensureReady({ allowAutoStart });
+    const [readiness, updateInfo] = await Promise.all([
+      this.ensureReady({ allowAutoStart }),
+      this.getPluginUpdateInfo()
+    ]);
     const healthResponse = await this.getHealth().catch(() => null);
 
     return {
@@ -481,6 +1076,7 @@ class TraeApiClient {
       gatewayReachable: Boolean(healthResponse?.ok),
       ready: readiness.ready,
       autoStarted: readiness.autoStarted,
+      updateInfo,
       healthSummary: healthResponse?.json?.data?.status || healthResponse?.json?.data?.service || "",
       readySummary:
         readiness.readyResponse?.json?.data?.automation?.mode ||
@@ -740,21 +1336,151 @@ function createTraeApiClient(config) {
   return new TraeApiClient(config);
 }
 
+async function runAutoUpdateCycle(config, options = {}) {
+  const runtimeState = updatePluginRuntimeState(config, {
+    autoApplyEnabled: config.autoApplyUpdates === true
+  });
+  if (config.autoApplyUpdates !== true) {
+    return {
+      ok: false,
+      skipped: true,
+      reason: "disabled"
+    };
+  }
+  if (runtimeState.pendingRestart) {
+    updatePluginRuntimeState(config, {
+      lastUpdateStatus: "pending_restart",
+      lastUpdateMessage: "A newer plugin version is already installed. Restart OpenClaw Gateway to load it."
+    });
+    return {
+      ok: false,
+      skipped: true,
+      reason: "pending_restart"
+    };
+  }
+  if (runtimeState.autoUpdateInFlight) {
+    return runtimeState.autoUpdateInFlight;
+  }
+
+  const createClient = options.createClient || createTraeApiClient;
+  const startedAt = new Date().toISOString();
+  updatePluginRuntimeState(config, {
+    lastUpdateCheckAt: startedAt,
+    lastUpdateStatus: "checking",
+    lastUpdateMessage: "Checking for plugin updates in the background."
+  });
+
+  const inFlightPromise = (async () => {
+    try {
+      const client = createClient(config);
+      const result = await client.updateSelf({
+        force: false,
+        source: "auto"
+      });
+      updatePluginRuntimeState(config, {
+        pendingRestart: result.restartRequired === true || result.changed === true,
+        lastUpdateStatus: result.changed ? "updated" : result.alreadyLatest ? "up_to_date" : "unchanged",
+        lastUpdateMessage:
+          result.warningMessage ||
+          (result.changed
+            ? "Plugin updated successfully in the background. Restart OpenClaw Gateway to load the new version."
+            : "Plugin is already at the latest published version."),
+        lastUpdateSource: "auto",
+        lastKnownCurrentVersion: result.installedVersion,
+        lastKnownLatestVersion: result.latestVersion
+      });
+      return {
+        ok: true,
+        result
+      };
+    } catch (error) {
+      updatePluginRuntimeState(config, {
+        lastUpdateStatus: "failed",
+        lastUpdateMessage: error.message || "Background plugin update failed"
+      });
+      return {
+        ok: false,
+        errorMessage: error.message || "Background plugin update failed"
+      };
+    } finally {
+      updatePluginRuntimeState(config, {
+        autoUpdateInFlight: null
+      });
+    }
+  })();
+
+  updatePluginRuntimeState(config, {
+    autoUpdateInFlight: inFlightPromise
+  });
+  return inFlightPromise;
+}
+
+function schedulePluginAutoUpdate(config, options = {}) {
+  const runtimeState = updatePluginRuntimeState(config, {
+    autoApplyEnabled: config.autoApplyUpdates === true
+  });
+  if (config.autoApplyUpdates !== true) {
+    return runtimeState;
+  }
+  if (runtimeState.autoUpdateScheduled) {
+    return runtimeState;
+  }
+
+  const setTimeoutImpl = options.setTimeoutImpl || setTimeout;
+  const createClient = options.createClient;
+  const scheduleNext = (delayMs) => {
+    const timer = setTimeoutImpl(async () => {
+      updatePluginRuntimeState(config, {
+        autoUpdateTimer: null
+      });
+      await runAutoUpdateCycle(config, {
+        createClient
+      });
+      const latestState = getPluginRuntimeState(config);
+      if (config.autoUpdateIntervalMs > 0 && latestState.pendingRestart !== true) {
+        scheduleNext(config.autoUpdateIntervalMs);
+      }
+    }, normalizeNonNegativeInteger(delayMs, 0));
+    if (timer && typeof timer.unref === "function") {
+      timer.unref();
+    }
+    updatePluginRuntimeState(config, {
+      autoUpdateTimer: timer
+    });
+  };
+
+  updatePluginRuntimeState(config, {
+    autoUpdateScheduled: true
+  });
+  scheduleNext(config.autoUpdateStartDelayMs);
+  return runtimeState;
+}
+
 module.exports = {
   DEFAULT_BASE_URL,
   DEFAULT_READY_TIMEOUT_MS,
   DEFAULT_REQUEST_TIMEOUT_MS,
+  DEFAULT_UPDATE_CHECK_TIMEOUT_MS,
+  DEFAULT_UPDATE_COMMAND_TIMEOUT_MS,
+  DEFAULT_AUTO_UPDATE_START_DELAY_MS,
+  DEFAULT_AUTO_UPDATE_INTERVAL_MS,
   PLUGIN_ID,
   TraeApiClient,
+  compareSemanticVersions,
   createTraeApiClient,
+  fetchLatestPublishedVersion,
   formatDelegateToolResult,
   formatNewChatToolResult,
   formatOpenProjectToolResult,
   formatStatusToolResult,
   formatSwitchModeToolResult,
+  formatUpdateToolResult,
   getBundledQuickstartDefaults,
+  readInstalledPluginPackageMetadata,
+  runAutoUpdateCycle,
   resolveReplyText,
   resolveBundledRuntimeRoot,
   resolvePluginRuntimeConfig,
+  schedulePluginAutoUpdate,
   stripDuplicateFinalText
 };

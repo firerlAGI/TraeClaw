@@ -19,6 +19,18 @@
         "type": "boolean",
         "default": false
       },
+      "checkForUpdates": {
+        "type": "boolean",
+        "default": true
+      },
+      "autoApplyUpdates": {
+        "type": "boolean",
+        "default": false
+      },
+      "openclawCommand": {
+        "type": "string",
+        "default": "openclaw"
+      },
       "quickstartCommand": {
         "type": "string",
         "default": ""
@@ -36,6 +48,26 @@
         "type": "integer",
         "minimum": 5000,
         "default": 180000
+      },
+      "updateCheckTimeoutMs": {
+        "type": "integer",
+        "minimum": 250,
+        "default": 2500
+      },
+      "updateCommandTimeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "default": 120000
+      },
+      "autoUpdateStartDelayMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 30000
+      },
+      "autoUpdateIntervalMs": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 21600000
       }
     }
   },
@@ -52,6 +84,16 @@
     "autoStart": {
       "label": "Auto-start TraeClaw"
     },
+    "checkForUpdates": {
+      "label": "Check for plugin updates"
+    },
+    "autoApplyUpdates": {
+      "label": "Auto-apply plugin updates"
+    },
+    "openclawCommand": {
+      "label": "OpenClaw Command",
+      "placeholder": "openclaw or /path/to/openclaw"
+    },
     "quickstartCommand": {
       "label": "Quickstart Command",
       "placeholder": "\"C:\\path\\to\\TraeClaw\\start-traeapi.cmd\" or \"/Users/you/TraeClaw/start-traeapi.command\""
@@ -65,6 +107,18 @@
     },
     "requestTimeoutMs": {
       "label": "Request Timeout (ms)"
+    },
+    "updateCheckTimeoutMs": {
+      "label": "Update Check Timeout (ms)"
+    },
+    "updateCommandTimeoutMs": {
+      "label": "Update Command Timeout (ms)"
+    },
+    "autoUpdateStartDelayMs": {
+      "label": "Auto Update Start Delay (ms)"
+    },
+    "autoUpdateIntervalMs": {
+      "label": "Auto Update Interval (ms)"
     }
   }
 }

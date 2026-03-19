@@ -6,7 +6,9 @@ const {
   formatOpenProjectToolResult,
   formatStatusToolResult,
   formatSwitchModeToolResult,
-  resolvePluginRuntimeConfig
+  formatUpdateToolResult,
+  resolvePluginRuntimeConfig,
+  schedulePluginAutoUpdate
 } = require("./lib/traeapi-client");
 
 function buildToolContent(text) {
@@ -57,6 +59,8 @@ function buildTraeSlashResult(result, options = {}) {
 }
 
 function register(api) {
+  const initialConfig = resolvePluginRuntimeConfig(api);
+  schedulePluginAutoUpdate(initialConfig);
   const getClient = () => createTraeApiClient(resolvePluginRuntimeConfig(api));
 
   api.registerTool({
@@ -78,6 +82,29 @@ function register(api) {
         allowAutoStart: params.allowAutoStart === true
       });
       return buildToolContent(formatStatusToolResult(status));
+    }
+  });
+
+  api.registerTool({
+    name: "trae_update_self",
+    description:
+      "Update the installed npm-distributed TraeClaw plugin through OpenClaw and report whether a gateway restart is required.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        force: {
+          type: "boolean",
+          default: false
+        }
+      }
+    },
+    async execute(_id, params = {}) {
+      const client = getClient();
+      const result = await client.updateSelf({
+        force: params.force === true
+      });
+      return buildToolContent(formatUpdateToolResult(result));
     }
   });
 

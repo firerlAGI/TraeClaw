@@ -15,6 +15,6 @@
     }
   },
   "tools": {
-    "alsoAllow": ["trae-ide"]
+    "alsoAllow": ["trae-ide", "trae_update_self"]
   }
 }

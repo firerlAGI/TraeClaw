@@ -50,7 +50,7 @@ function buildOpenClawDevConfig(layout, options = {}) {
         {
           id: "main",
           tools: {
-            alsoAllow: ["trae_status", "trae_new_chat", "trae_open_project", "trae_switch_mode", "trae_delegate"]
+            alsoAllow: ["trae_status", "trae_update_self", "trae_new_chat", "trae_open_project", "trae_switch_mode", "trae_delegate"]
           }
         }
       ]
