@@ -27,8 +27,16 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22.14.0
+          node-version: 24
           registry-url: https://registry.npmjs.org
+
+      - name: Upgrade npm for trusted publishing
+        run: npm install --global npm@latest
+
+      - name: Show runtime versions
+        run: |
+          node --version
+          npm --version
 
       - name: Verify plugin release metadata
         run: npm run release:openclaw-plugin:check
@@ -42,3 +50,5 @@ jobs:
       - name: Publish plugin to npm
         working-directory: integrations/openclaw-trae-plugin
         run: npm publish --tag "${{ inputs.npm_tag }}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
