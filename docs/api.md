@@ -1,8 +1,8 @@
-# TraeAPI HTTP API
+# TraeClaw HTTP API
 
 ## Overview
 
-TraeAPI exposes a local HTTP surface over a running Trae desktop window.
+TraeClaw exposes a local HTTP surface over a running Trae desktop window.
 
 - Transport: local HTTP on loopback only
 - Automation backend: Chrome DevTools Protocol + DOM automation

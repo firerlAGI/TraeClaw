@@ -2,7 +2,7 @@
   "plugins": {
     "load": {
       "paths": [
-        "C:\\path\\to\\TraeAPI\\integrations\\openclaw-trae-plugin"
+        "C:\\path\\to\\TraeClaw\\integrations\\openclaw-trae-plugin"
       ]
     },
     "entries": {

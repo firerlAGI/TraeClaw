@@ -8,7 +8,9 @@ const {
   TraeApiClient,
   formatDelegateToolResult,
   formatNewChatToolResult,
+  formatOpenProjectToolResult,
   formatStatusToolResult,
+  formatSwitchModeToolResult,
   getBundledQuickstartDefaults,
   resolveReplyText,
   resolveBundledRuntimeRoot,
@@ -110,6 +112,33 @@ test("formatters produce readable summaries", () => {
   });
   assert.equal(newChatText.includes("New Trae chat created."), true);
   assert.equal(newChatText.includes("Session ID: session-new"), true);
+
+  const openProjectText = formatOpenProjectToolResult({
+    projectName: "my-project",
+    projectPath: "/tmp/my-project",
+    ready: true,
+    autoStarted: true,
+    alreadyOpen: false,
+    windowTitle: "my-project - Trae"
+  });
+  assert.equal(openProjectText.includes("Trae project opened."), true);
+  assert.equal(openProjectText.includes("Project: my-project"), true);
+  assert.equal(openProjectText.includes("Quickstart triggered: yes"), true);
+
+  const switchModeText = formatSwitchModeToolResult({
+    autoStarted: true,
+    data: {
+      mode: "ide",
+      previousMode: "solo",
+      changed: true,
+      target: {
+        title: "my-project - Trae"
+      }
+    }
+  });
+  assert.equal(switchModeText.includes("Trae mode switched."), true);
+  assert.equal(switchModeText.includes("Current mode: ide"), true);
+  assert.equal(switchModeText.includes("Quickstart triggered: yes"), true);
 });
 
 test("resolveReplyText falls back to the last chunk when response text is empty", () => {
@@ -199,6 +228,236 @@ test("TraeApiClient delegates tasks through /v1/chat", async () => {
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test("openProject returns early when the requested project is already open", async () => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "trae-open-project-ready-"));
+  const projectName = path.basename(projectDir);
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 200,
+    requestTimeoutMs: 200
+  });
+
+  client.getHealth = async () => ({
+    ok: true,
+    status: 200,
+    json: {
+      data: {
+        automation: {
+          ready: true,
+          target: {
+            title: `${projectName} - Trae`
+          }
+        }
+      }
+    }
+  });
+  client.startQuickstart = async () => {
+    throw new Error("startQuickstart should not be called when the project is already open");
+  };
+
+  try {
+    const result = await client.openProject({
+      projectPath: projectDir
+    });
+    assert.equal(result.alreadyOpen, true);
+    assert.equal(result.autoStarted, false);
+    assert.equal(result.windowTitle, `${projectName} - Trae`);
+  } finally {
+    fs.rmSync(projectDir, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("openProject starts quickstart with project overrides and waits for the new title", async () => {
+  const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), "trae-open-project-launch-"));
+  const projectName = path.basename(projectDir);
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    quickstartCommand: "\"/tmp/start-traeapi.command\"",
+    quickstartCwd: "/tmp",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500
+  });
+
+  let healthCallCount = 0;
+  let quickstartOptions = null;
+  client.getHealth = async () => {
+    healthCallCount += 1;
+    if (healthCallCount === 1) {
+      return {
+        ok: true,
+        status: 200,
+        json: {
+          data: {
+            automation: {
+              ready: true,
+              target: {
+                title: "old-project - Trae"
+              }
+            }
+          }
+        }
+      };
+    }
+
+    return {
+      ok: true,
+      status: 200,
+      json: {
+        data: {
+          automation: {
+            ready: true,
+            target: {
+              title: `${projectName} - Trae`
+            }
+          }
+        }
+      }
+    };
+  };
+  client.startQuickstart = async (options = {}) => {
+    quickstartOptions = options;
+  };
+
+  try {
+    const result = await client.openProject({
+      projectPath: projectDir
+    });
+    assert.equal(result.alreadyOpen, false);
+    assert.equal(result.autoStarted, true);
+    assert.equal(result.windowTitle, `${projectName} - Trae`);
+    assert.deepEqual(quickstartOptions, {
+      envOverrides: {
+        TRAE_QUICKSTART_PROJECT_PATH: path.resolve(projectDir),
+        TRAE_QUICKSTART_FORCE_FRESH_WINDOW: "1"
+      }
+    });
+  } finally {
+    fs.rmSync(projectDir, {
+      recursive: true,
+      force: true
+    });
+  }
+});
+
+test("delegateTask opens the requested project before sending the task", async () => {
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500
+  });
+
+  let openedProjectPath = "";
+  let requestedBody = null;
+  client.openProject = async ({ projectPath }) => {
+    openedProjectPath = projectPath;
+    return {
+      projectPath,
+      ready: true
+    };
+  };
+  client.ensureReady = async () => ({
+    ready: true,
+    autoStarted: false,
+    readyResponse: {
+      ok: true,
+      json: {
+        success: true
+      }
+    }
+  });
+  client.request = async (_pathname, options = {}) => {
+    requestedBody = options.body;
+    return {
+      ok: true,
+      status: 200,
+      json: {
+        success: true,
+        data: {
+          result: {
+            response: {
+              text: "delegate ok"
+            }
+          }
+        }
+      }
+    };
+  };
+
+  const result = await client.delegateTask({
+    task: "Inspect this project",
+    projectPath: "/tmp/sample-project"
+  });
+
+  assert.equal(openedProjectPath, "/tmp/sample-project");
+  assert.equal(requestedBody.content, "Inspect this project");
+  assert.equal(result.data.result.response.text, "delegate ok");
+});
+
+test("switchMode ensures readiness and posts the requested mode to the gateway", async () => {
+  const client = new TraeApiClient({
+    baseUrl: "http://127.0.0.1:8787",
+    token: "",
+    autoStart: false,
+    quickstartCommand: "",
+    quickstartCwd: "",
+    readyTimeoutMs: 500,
+    requestTimeoutMs: 500
+  });
+
+  let requestedPath = "";
+  let requestedBody = null;
+  client.ensureReady = async () => ({
+    ready: true,
+    autoStarted: true,
+    readyResponse: {
+      ok: true,
+      json: {
+        success: true
+      }
+    }
+  });
+  client.request = async (pathname, options = {}) => {
+    requestedPath = pathname;
+    requestedBody = options.body;
+    return {
+      ok: true,
+      status: 200,
+      json: {
+        success: true,
+        data: {
+          mode: "ide",
+          previousMode: "solo",
+          changed: true
+        }
+      }
+    };
+  };
+
+  const result = await client.switchMode({
+    mode: "ide"
+  });
+
+  assert.equal(requestedPath, "/v1/mode");
+  assert.deepEqual(requestedBody, {
+    mode: "ide"
+  });
+  assert.equal(result.data.mode, "ide");
+  assert.equal(result.autoStarted, true);
 });
 
 test("getBundledQuickstartDefaults picks the macOS launcher when available", () => {

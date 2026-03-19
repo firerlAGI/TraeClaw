@@ -1,5 +1,5 @@
 /*
-Minimal TraeAPI example client using Node.js >= 22.
+Minimal TraeClaw example client using Node.js >= 22.
 
 Usage:
   node examples/node/client.mjs

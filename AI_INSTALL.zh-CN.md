@@ -1,6 +1,6 @@
 # AI 安装说明
 
-这份文档是给 OpenClaw 或其他 AI 助手看的，目标是让 AI 从 GitHub 开始，把 TraeAPI + OpenClaw 插件安装到用户本机。
+这份文档是给 OpenClaw 或其他 AI 助手看的，目标是让 AI 从 GitHub 开始，把 TraeClaw + OpenClaw 插件安装到用户本机。
 
 ## OpenClaw 最短执行版
 
@@ -55,8 +55,8 @@ openclaw config validate
 如果用户已经有本地仓库，优先让用户直接把下面这段话发给 OpenClaw：
 
 ```text
-请帮我把本地 TraeAPI 仓库安装到 OpenClaw。
-仓库路径是：E:\path\to\TraeElectronAPI
+请帮我把本地 TraeClaw 仓库安装到 OpenClaw。
+仓库路径是：E:\path\to\TraeClaw
 
 请先阅读仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md。
 因为仓库已经在本地，请直接在仓库根目录执行：
@@ -80,7 +80,7 @@ bash ./scripts/install-openclaw-integration.sh
 
 把下面这条链路安装到用户机器上：
 
-`OpenClaw -> trae_delegate -> TraeAPI -> Trae 桌面端`
+`OpenClaw -> trae_delegate -> TraeClaw -> Trae 桌面端`
 
 ## 重要约束
 
@@ -121,9 +121,9 @@ bash ./scripts/install-openclaw-integration.sh
 ## 首选下载地址
 
 - 仓库 zip：
-  - `https://github.com/firerlAGI/TraeElectronAPI/archive/refs/heads/main.zip`
+  - `https://github.com/firerlAGI/TraeClaw/archive/refs/heads/main.zip`
 - bootstrap 脚本：
-  - `https://raw.githubusercontent.com/firerlAGI/TraeElectronAPI/main/scripts/bootstrap-openclaw-integration.ps1`
+  - `https://raw.githubusercontent.com/firerlAGI/TraeClaw/main/scripts/bootstrap-openclaw-integration.ps1`
 
 ## AI 推荐执行步骤
 
@@ -169,7 +169,7 @@ bash ./scripts/install-openclaw-integration.sh
 
 - 不要执行 `openclaw plugins install <github-url>`
 - 不要让用户手工编辑一大段 JSON，除非 CLI 写配置失败
-- 不要只安装 `integrations/openclaw-trae-plugin`，因为用户还需要 TraeAPI 本体和 `start-traeapi.cmd`
+- 不要只安装 `integrations/openclaw-trae-plugin`，因为用户还需要 TraeClaw 本体和 `start-traeapi.cmd`
 - 不要把“已经下载仓库”误当成“已经安装完成”
 
 ## 成功标准
@@ -179,7 +179,7 @@ bash ./scripts/install-openclaw-integration.sh
 - `openclaw plugins info trae-ide` 成功
 - `openclaw config validate` 成功
 - OpenClaw 可以调用 `trae_status`
-- TraeAPI 可以通过 `start-traeapi.cmd` 启动
+- TraeClaw 可以通过 `start-traeapi.cmd` 启动
 
 ## OpenClaw 应向用户报告什么
 

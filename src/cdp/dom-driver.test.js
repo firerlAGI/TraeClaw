@@ -169,6 +169,64 @@ test("prepareSession clicks Trae new chat and marks the session as prepared", as
   assert.equal(driver.getSnapshot().preparedSessionCount, 1);
 });
 
+test("switchMode clicks the requested Trae mode tab and waits until the mode changes", async () => {
+  let inspectModeCount = 0;
+  let switchedPayload = null;
+
+  const driver = createTraeAutomationDriver({
+    activitySelectors: [],
+    modeSwitchPollIntervalMs: 1,
+    modeSwitchTimeoutMs: 20,
+    discoverTarget: async () => createDiscoveryResult(),
+    connectToTarget: async () => ({
+      async close() {}
+    }),
+    domAdapter: {
+      async inspectReadiness() {
+        return {
+          ready: true
+        };
+      },
+      async inspectMode() {
+        inspectModeCount += 1;
+        if (inspectModeCount === 1) {
+          return {
+            currentMode: "solo",
+            bodyClassName: "solo-mode",
+            tabs: [{ text: "SOLO" }, { text: "IDE" }]
+          };
+        }
+        return {
+          currentMode: "ide",
+          bodyClassName: "",
+          tabs: [{ text: "SOLO" }, { text: "IDE" }]
+        };
+      },
+      async switchMode(_session, _config, payload) {
+        switchedPayload = payload;
+        return {
+          ok: true,
+          requestedMode: payload.mode,
+          previousMode: "solo",
+          currentMode: "solo",
+          clicked: true
+        };
+      }
+    }
+  });
+
+  const result = await driver.switchMode({
+    mode: "ide"
+  });
+
+  assert.equal(switchedPayload.mode, "ide");
+  assert.equal(result.status, "ok");
+  assert.equal(result.mode, "ide");
+  assert.equal(result.previousMode, "solo");
+  assert.equal(result.changed, true);
+  assert.equal(result.details.after.currentMode, "ide");
+});
+
 test("dispatchRequest collects incremental DOM updates until the response becomes idle", async () => {
   const observed = [];
   let captureCallCount = 0;

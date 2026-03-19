@@ -230,6 +230,125 @@ function traeAutomationIsButtonDisabled(element) {
   }
   return typeof element.className === "string" && /(^|\\s)disabled(\\s|$)/.test(element.className);
 }
+
+function traeAutomationNormalizeMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "solo" || normalized === "ide") {
+    return normalized;
+  }
+  return "";
+}
+
+function traeAutomationGetBodyClassName() {
+  return document.body && typeof document.body.className === "string" ? document.body.className : "";
+}
+
+function traeAutomationCollectModeTabs(selectors) {
+  return traeAutomationFilterTopLevel(traeAutomationQueryAll(selectors).filter(traeAutomationIsVisible)).map((element, index) => ({
+    index,
+    text: traeAutomationGetText(element),
+    descriptor: traeAutomationDescribeElement(element),
+    ariaSelected: element.getAttribute("aria-selected"),
+    role: element.getAttribute("role")
+  }));
+}
+
+function traeAutomationResolveMode(modeTabs) {
+  const bodyClassName = traeAutomationGetBodyClassName();
+  if (/(^|\\s)solo-mode(\\s|$)/.test(bodyClassName)) {
+    return "solo";
+  }
+  return Array.isArray(modeTabs) && modeTabs.length > 0 ? "ide" : "unknown";
+}
+
+function traeAutomationFindModeTab(selectors, requestedMode) {
+  const normalizedMode = traeAutomationNormalizeMode(requestedMode);
+  if (!normalizedMode) {
+    return null;
+  }
+
+  const candidates = traeAutomationFilterTopLevel(traeAutomationQueryAll(selectors).filter(traeAutomationIsVisible));
+  for (const candidate of candidates) {
+    const text = traeAutomationGetText(candidate).toLowerCase();
+    const className = typeof candidate.className === "string" ? candidate.className.toLowerCase() : "";
+    if (text === normalizedMode || className.includes("icube-mode-tab-item-" + normalizedMode)) {
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function traeAutomationClickElement(element) {
+  if (!element) {
+    return {
+      ok: false,
+      reason: "element_missing"
+    };
+  }
+
+  const point = traeAutomationGetElementCenter(element) || { x: 0, y: 0 };
+  const common = {
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    button: 0,
+    buttons: 1,
+    clientX: point.x,
+    clientY: point.y,
+    view: window
+  };
+
+  if (typeof element.focus === "function") {
+    element.focus();
+  }
+  if (typeof PointerEvent === "function") {
+    element.dispatchEvent(new PointerEvent("pointerdown", {
+      ...common,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true
+    }));
+  }
+  element.dispatchEvent(new MouseEvent("mousedown", common));
+  if (typeof PointerEvent === "function") {
+    element.dispatchEvent(new PointerEvent("pointerup", {
+      ...common,
+      buttons: 0,
+      pointerId: 1,
+      pointerType: "mouse",
+      isPrimary: true
+    }));
+  }
+  element.dispatchEvent(new MouseEvent("mouseup", {
+    ...common,
+    buttons: 0
+  }));
+  element.dispatchEvent(new MouseEvent("click", {
+    ...common,
+    buttons: 0,
+    detail: 1
+  }));
+
+  return {
+    ok: true,
+    descriptor: traeAutomationDescribeElement(element)
+  };
+}
+
+function traeAutomationGetElementCenter(element) {
+  if (!element || typeof element.getBoundingClientRect !== "function") {
+    return null;
+  }
+  const rect = element.getBoundingClientRect();
+  if (!(rect.width > 0 || rect.height > 0)) {
+    return null;
+  }
+  return {
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2
+  };
+}
 `;
 
 function buildReadinessExpression(config) {
@@ -293,6 +412,101 @@ function buildPrepareSessionExpression(config) {
       clicked: true,
       trigger: "new_chat",
       button: traeAutomationDescribeElement(button)
+    };
+  })()`;
+}
+
+function buildModeInspectionExpression(config) {
+  return `(() => {
+    ${BROWSER_HELPERS_SOURCE}
+    const modeTabSelectors = ${JSON.stringify(config.modeTabSelectors || [])};
+    const tabs = traeAutomationCollectModeTabs(modeTabSelectors);
+    return {
+      currentMode: traeAutomationResolveMode(tabs),
+      bodyClassName: traeAutomationGetBodyClassName(),
+      title: document.title,
+      url: window.location.href,
+      tabs
+    };
+  })()`;
+}
+
+function buildSwitchModeExpression(config, payload = {}) {
+  return `(() => {
+    ${BROWSER_HELPERS_SOURCE}
+    const modeTabSelectors = ${JSON.stringify(config.modeTabSelectors || [])};
+    const requestedMode = traeAutomationNormalizeMode(${JSON.stringify(payload.mode || "")});
+    const tabs = traeAutomationCollectModeTabs(modeTabSelectors);
+    const previousMode = traeAutomationResolveMode(tabs);
+    if (!requestedMode) {
+      return {
+        ok: false,
+        reason: "invalid_mode",
+        requestedMode: ${JSON.stringify(String(payload.mode || ""))}
+      };
+    }
+
+    if (previousMode === requestedMode) {
+      return {
+        ok: true,
+        clicked: false,
+        noOp: true,
+        requestedMode,
+        previousMode,
+        currentMode: previousMode,
+        bodyClassName: traeAutomationGetBodyClassName(),
+        tabs
+      };
+    }
+
+    const targetTab = traeAutomationFindModeTab(modeTabSelectors, requestedMode);
+    if (!targetTab) {
+      return {
+        ok: false,
+        reason: "mode_tab_missing",
+        requestedMode,
+        previousMode,
+        tabs
+      };
+    }
+
+    return {
+      ok: true,
+      clicked: false,
+      noOp: false,
+      requestedMode,
+      previousMode,
+      currentMode: previousMode,
+      bodyClassName: traeAutomationGetBodyClassName(),
+      targetTab: {
+        ...traeAutomationDescribeElement(targetTab),
+        text: traeAutomationGetText(targetTab)
+      },
+      targetPoint: traeAutomationGetElementCenter(targetTab),
+      tabs
+    };
+  })()`;
+}
+
+function buildModeClickExpression(config, payload = {}) {
+  return `(() => {
+    ${BROWSER_HELPERS_SOURCE}
+    const modeTabSelectors = ${JSON.stringify(config.modeTabSelectors || [])};
+    const requestedMode = traeAutomationNormalizeMode(${JSON.stringify(payload.mode || "")});
+    const targetTab = traeAutomationFindModeTab(modeTabSelectors, requestedMode);
+    if (!targetTab) {
+      return {
+        ok: false,
+        clicked: false,
+        reason: "mode_tab_missing"
+      };
+    }
+
+    const clickResult = traeAutomationClickElement(targetTab);
+    return {
+      ok: clickResult.ok,
+      clicked: clickResult.ok,
+      trigger: "dom_click"
     };
   })()`;
 }
@@ -450,9 +664,12 @@ module.exports = {
   DEFAULT_TEXT_PREVIEW_LENGTH,
   buildCaptureExpression,
   buildDiagnosticsExpression,
+  buildModeClickExpression,
+  buildModeInspectionExpression,
   buildPrepareInputExpression,
   buildPrepareSessionExpression,
   buildReadinessExpression,
   buildSubmitExpression,
+  buildSwitchModeExpression,
   buildTriggerSubmitExpression
 };

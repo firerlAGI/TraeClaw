@@ -2,11 +2,11 @@
 set -euo pipefail
 
 write_step() {
-  printf '[TraeAPI] %s\n' "$1"
+  printf '[TraeClaw] %s\n' "$1"
 }
 
-repo_zip_url="https://github.com/firerlAGI/TraeElectronAPI/archive/refs/heads/main.zip"
-install_root="${HOME}/.openclaw/tools/TraeElectronAPI"
+repo_zip_url="https://github.com/firerlAGI/TraeClaw/archive/refs/heads/main.zip"
+install_root="${HOME}/.openclaw/tools/TraeClaw"
 openclaw_command="openclaw"
 base_url="http://127.0.0.1:8787"
 
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 temp_root="$(mktemp -d "${TMPDIR:-/tmp}/traeapi-bootstrap-XXXXXX")"
-archive_path="$temp_root/TraeElectronAPI.zip"
+archive_path="$temp_root/TraeClaw.zip"
 extract_root="$temp_root/extract"
 mkdir -p "$extract_root"
 

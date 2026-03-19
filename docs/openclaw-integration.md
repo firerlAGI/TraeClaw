@@ -1,10 +1,10 @@
 # OpenClaw Integration Guide
 
-This guide is for users who want OpenClaw to use Trae as an IDE tool through TraeAPI.
+This guide is for users who want OpenClaw to use Trae as an IDE tool through TraeClaw.
 
 Target flow:
 
-`OpenClaw agent -> trae_delegate -> TraeAPI -> Trae desktop`
+`OpenClaw agent -> trae_delegate -> TraeClaw -> Trae desktop`
 
 This is not a model-provider integration. OpenClaw keeps using its own configured LLM. Trae is exposed as a callable IDE tool.
 
@@ -15,7 +15,7 @@ This is not a model-provider integration. OpenClaw keeps using its own configure
 - This repository available locally.
 - Trae must be able to start with `--remote-debugging-port=<port>`.
 
-## 1. Start TraeAPI
+## 1. Start TraeClaw
 
 Recommended path:
 
@@ -52,7 +52,7 @@ Simplest option while both projects live in local checkouts:
   "plugins": {
     "load": {
       "paths": [
-        "/path/to/TraeAPI/integrations/openclaw-trae-plugin"
+        "/path/to/TraeClaw/integrations/openclaw-trae-plugin"
       ]
     },
     "entries": {
@@ -61,8 +61,8 @@ Simplest option while both projects live in local checkouts:
         "config": {
           "baseUrl": "http://127.0.0.1:8787",
           "autoStart": true,
-          "quickstartCommand": "\"/path/to/TraeAPI/start-traeapi.command\"",
-          "quickstartCwd": "/path/to/TraeAPI"
+          "quickstartCommand": "\"/path/to/TraeClaw/start-traeapi.command\"",
+          "quickstartCwd": "/path/to/TraeClaw"
         }
       }
     }
@@ -70,7 +70,7 @@ Simplest option while both projects live in local checkouts:
 }
 ```
 
-Windows users can keep using `"C:\path\to\TraeAPI\start-traeapi.cmd"` as the `quickstartCommand`. Keep the outer quotes if the path may contain spaces.
+Windows users can keep using `"C:\path\to\TraeClaw\start-traeapi.cmd"` as the `quickstartCommand`. Keep the outer quotes if the path may contain spaces.
 
 If your gateway uses a bearer token, also set:
 
@@ -98,7 +98,7 @@ You can also start from repository examples instead of writing the config from s
 If you want users to receive plugin updates directly through OpenClaw later, install the npm distribution:
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 ```
 
@@ -119,7 +119,7 @@ openclaw plugins update trae-ide
 
 Important:
 
-- the npm package now bundles the full TraeAPI runtime
+- the npm package now bundles the full TraeClaw runtime
 - when users run `openclaw plugins update trae-ide`, the plugin and gateway capabilities update together
 - if you explicitly configure `quickstartCommand`, it overrides the bundled runtime launcher
 
@@ -213,7 +213,7 @@ You can also type directly in the OpenClaw chat box:
 
 The plugin will automatically:
 
-- start or wake TraeAPI
+- start or wake TraeClaw
 - create a fresh Trae chat
 - hand the text after `/Trae` directly to Trae
 
@@ -231,10 +231,10 @@ The process trace is included only when you use `/Trae process ...`.
 
 `/ready` is false
 
-- TraeAPI can reach Trae, but the current Trae page is not automation-ready
+- TraeClaw can reach Trae, but the current Trae page is not automation-ready
 - The easiest recovery is usually:
   1. close running Trae windows
-  2. start TraeAPI again
+  2. start TraeClaw again
   3. let it relaunch Trae with remote debugging
 
 Trae opens but still lands on the wrong screen

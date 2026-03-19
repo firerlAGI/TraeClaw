@@ -5,10 +5,13 @@ const { TraeAutomationError, normalizeAutomationError } = require("./errors");
 const {
   buildCaptureExpression,
   buildDiagnosticsExpression,
+  buildModeClickExpression,
+  buildModeInspectionExpression,
   buildPrepareInputExpression,
   buildPrepareSessionExpression,
   buildReadinessExpression,
   buildSubmitExpression,
+  buildSwitchModeExpression,
   buildTriggerSubmitExpression
 } = require("./browser-dom");
 
@@ -31,6 +34,7 @@ const DEFAULT_RESPONSE_SELECTORS = [
 ];
 const DEFAULT_ACTIVITY_SELECTORS = [".chat-content-container", ".chat-list-wrapper"];
 const DEFAULT_NEW_CHAT_SELECTORS = ["a.codicon-icube-NewChat"];
+const DEFAULT_MODE_TAB_SELECTORS = [".icube-mode-tab-item", "[class*='icube-mode-tab-item']"];
 const DEFAULT_SUBMIT_MODE = String(process.env.TRAE_SEND_TRIGGER || "button").trim().toLowerCase() || "button";
 const DEFAULT_RESPONSE_POLL_INTERVAL_MS = Number(process.env.TRAE_RESPONSE_POLL_INTERVAL_MS || 350);
 const DEFAULT_RESPONSE_IDLE_MS = Number(process.env.TRAE_RESPONSE_IDLE_MS || 1200);
@@ -38,6 +42,8 @@ const DEFAULT_RESPONSE_TIMEOUT_MS = Number(process.env.TRAE_RESPONSE_TIMEOUT_MS 
 const DEFAULT_POST_ACTION_DELAY_MS = Number(process.env.TRAE_POST_ACTION_DELAY_MS || 350);
 const DEFAULT_SESSION_PREPARE_TIMEOUT_MS = Number(process.env.TRAE_SESSION_PREPARE_TIMEOUT_MS || 5000);
 const DEFAULT_SESSION_PREPARE_STABLE_POLLS = Number(process.env.TRAE_SESSION_PREPARE_STABLE_POLLS || 2);
+const DEFAULT_MODE_SWITCH_TIMEOUT_MS = Number(process.env.TRAE_MODE_SWITCH_TIMEOUT_MS || 5000);
+const DEFAULT_MODE_SWITCH_POLL_INTERVAL_MS = Number(process.env.TRAE_MODE_SWITCH_POLL_INTERVAL_MS || 100);
 
 function sleep(ms) {
   return new Promise((resolve) => {
@@ -85,6 +91,7 @@ function buildDriverConfig(options = {}) {
       }
     ),
     newChatSelectors: parseSelectorList(options.newChatSelectors || process.env.TRAE_NEW_CHAT_SELECTORS, DEFAULT_NEW_CHAT_SELECTORS),
+    modeTabSelectors: parseSelectorList(options.modeTabSelectors || process.env.TRAE_MODE_TAB_SELECTORS, DEFAULT_MODE_TAB_SELECTORS),
     submitMode: String(options.submitMode || process.env.TRAE_SEND_TRIGGER || DEFAULT_SUBMIT_MODE).trim().toLowerCase() || "button",
     requireResponseSelector:
       options.requireResponseSelector === true || String(process.env.TRAE_REQUIRE_RESPONSE_SELECTOR || "0").trim() === "1",
@@ -99,6 +106,10 @@ function buildDriverConfig(options = {}) {
     ),
     sessionPrepareStablePolls: Number(
       options.sessionPrepareStablePolls || process.env.TRAE_SESSION_PREPARE_STABLE_POLLS || DEFAULT_SESSION_PREPARE_STABLE_POLLS
+    ),
+    modeSwitchTimeoutMs: Number(options.modeSwitchTimeoutMs || process.env.TRAE_MODE_SWITCH_TIMEOUT_MS || DEFAULT_MODE_SWITCH_TIMEOUT_MS),
+    modeSwitchPollIntervalMs: Number(
+      options.modeSwitchPollIntervalMs || process.env.TRAE_MODE_SWITCH_POLL_INTERVAL_MS || DEFAULT_MODE_SWITCH_POLL_INTERVAL_MS
     ),
     commandTimeoutMs: Number(options.commandTimeoutMs || process.env.TRAE_CDP_COMMAND_TIMEOUT_MS || 5000)
   };
@@ -144,8 +155,68 @@ function createBrowserDomAdapter() {
       }
 
       return session.evaluate(buildSubmitExpression(config, payload));
+    },
+    async inspectMode(session, config) {
+      return session.evaluate(buildModeInspectionExpression(config));
+    },
+    async switchMode(session, config, payload) {
+      const prepared = await session.evaluate(buildSwitchModeExpression(config, payload));
+      if (!prepared || !prepared.ok || prepared.noOp === true) {
+        return prepared;
+      }
+
+      const clicked = await session.evaluate(buildModeClickExpression(config, payload));
+      if (clicked?.ok) {
+        return {
+          ...prepared,
+          ...clicked,
+          clicked: clicked.clicked === true
+        };
+      }
+
+      const targetPoint = prepared.targetPoint;
+      if (targetPoint && typeof session.send === "function") {
+        await session.send("Input.dispatchMouseEvent", {
+          type: "mouseMoved",
+          x: targetPoint.x,
+          y: targetPoint.y,
+          button: "left",
+          buttons: 0,
+          clickCount: 0
+        });
+        await session.send("Input.dispatchMouseEvent", {
+          type: "mousePressed",
+          x: targetPoint.x,
+          y: targetPoint.y,
+          button: "left",
+          buttons: 1,
+          clickCount: 1
+        });
+        await session.send("Input.dispatchMouseEvent", {
+          type: "mouseReleased",
+          x: targetPoint.x,
+          y: targetPoint.y,
+          button: "left",
+          buttons: 0,
+          clickCount: 1
+        });
+        return {
+          ...prepared,
+          clicked: true,
+          trigger: "cdp_mouse"
+        };
+      }
+      return clicked;
     }
   };
+}
+
+function normalizeRequestedMode(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "solo" || normalized === "ide") {
+    return normalized;
+  }
+  return "";
 }
 
 async function inspectAutomationTarget(options = {}) {
@@ -182,7 +253,8 @@ async function inspectAutomationTarget(options = {}) {
         sendButtonSelectors: config.sendButtonSelectors,
         responseSelectors: config.responseSelectors,
         activitySelectors: config.activitySelectors,
-        newChatSelectors: config.newChatSelectors
+        newChatSelectors: config.newChatSelectors,
+        modeTabSelectors: config.modeTabSelectors
       },
       details: readiness || null,
       diagnostics: diagnostics || null
@@ -196,7 +268,8 @@ async function inspectAutomationTarget(options = {}) {
         sendButtonSelectors: config.sendButtonSelectors,
         responseSelectors: config.responseSelectors,
         activitySelectors: config.activitySelectors,
-        newChatSelectors: config.newChatSelectors
+        newChatSelectors: config.newChatSelectors,
+        modeTabSelectors: config.modeTabSelectors
       },
       error: normalizeAutomationError(error, "AUTOMATION_NOT_READY", "Trae automation is not ready"),
       diagnostics: null
@@ -564,6 +637,32 @@ async function collectAutomationResponse(options) {
   };
 }
 
+async function waitForModeSwitch(options) {
+  const {
+    domAdapter,
+    session,
+    config,
+    requestedMode,
+    now
+  } = options;
+  const startedAtMs = now();
+  let lastInspection = null;
+
+  while (now() - startedAtMs < config.modeSwitchTimeoutMs) {
+    lastInspection = await domAdapter.inspectMode(session, config);
+    if (lastInspection?.currentMode === requestedMode) {
+      return lastInspection;
+    }
+    await sleep(config.modeSwitchPollIntervalMs);
+  }
+
+  throw new TraeAutomationError("AUTOMATION_MODE_SWITCH_TIMEOUT", "Timed out while waiting for Trae to switch modes", {
+    mode: requestedMode,
+    modeSwitchTimeoutMs: config.modeSwitchTimeoutMs,
+    lastInspection
+  });
+}
+
 function createTraeAutomationDriver(options = {}) {
   const config = buildDriverConfig(options);
   const discoverTarget = typeof options.discoverTarget === "function" ? options.discoverTarget : discoverTraeTarget;
@@ -759,6 +858,83 @@ function createTraeAutomationDriver(options = {}) {
     }
   }
 
+  async function runModeSwitch(requestId, payload = {}) {
+    const requestedMode = normalizeRequestedMode(payload.mode);
+    if (!requestedMode) {
+      throw new TraeAutomationError("AUTOMATION_INVALID_MODE", 'mode must be either "solo" or "ide"', {
+        mode: payload.mode || null
+      });
+    }
+
+    const startedAt = new Date().toISOString();
+    let session = null;
+    try {
+      const discovery = await discoverTarget(config.discovery);
+      session = await connectToTarget(discovery.target, config);
+      const readiness = await domAdapter.inspectReadiness(session, config);
+      if (!readiness || !readiness.ready) {
+        throw new TraeAutomationError("AUTOMATION_SELECTOR_NOT_READY", "The Trae window is missing the configured selectors", {
+          readiness
+        });
+      }
+
+      if (typeof domAdapter.inspectMode !== "function" || typeof domAdapter.switchMode !== "function") {
+        throw new TraeAutomationError("AUTOMATION_MODE_SWITCH_UNAVAILABLE", "Trae automation does not support mode switching");
+      }
+
+      const before = await domAdapter.inspectMode(session, config);
+      const previousMode = normalizeRequestedMode(before?.currentMode) || "unknown";
+      const switchResult = await domAdapter.switchMode(session, config, {
+        mode: requestedMode
+      });
+      if (!switchResult || !switchResult.ok) {
+        throw new TraeAutomationError("AUTOMATION_MODE_SWITCH_FAILED", "Failed to switch Trae mode", {
+          switchResult: switchResult || {},
+          mode: requestedMode
+        });
+      }
+
+      const after =
+        switchResult.noOp === true && previousMode === requestedMode
+          ? before
+          : await waitForModeSwitch({
+              domAdapter,
+              session,
+              config,
+              requestedMode,
+              now
+            });
+      const finalMode = normalizeRequestedMode(after?.currentMode) || requestedMode;
+
+      return {
+        status: "ok",
+        requestId,
+        channel: payload.channel || "trae:mode:switch",
+        startedAt,
+        finishedAt: new Date().toISOString(),
+        mode: finalMode,
+        previousMode,
+        changed: switchResult.noOp !== true && finalMode !== previousMode,
+        target: {
+          id: discovery.target.id,
+          title: discovery.target.title,
+          url: discovery.target.url
+        },
+        details: {
+          before,
+          switchResult,
+          after
+        }
+      };
+    } catch (error) {
+      throw normalizeAutomationError(error, "AUTOMATION_MODE_SWITCH_FAILED", "Trae automation mode switch failed");
+    } finally {
+      if (session) {
+        await session.close().catch(() => {});
+      }
+    }
+  }
+
   function enqueueOperation(operation) {
     queuedRequestCount += 1;
     const queued = queuedOperations.then(operation, operation);
@@ -831,6 +1007,10 @@ function createTraeAutomationDriver(options = {}) {
           }
         }
       });
+    },
+    switchMode(payload = {}) {
+      const requestId = payload.requestId || randomUUID();
+      return enqueueOperation(() => runModeSwitch(requestId, payload));
     },
     getSnapshot() {
       return {

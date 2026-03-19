@@ -48,7 +48,7 @@ function buildRuntimePackageJson(pluginPackageJson) {
     name: `${pluginPackageJson.name}-runtime`,
     version: pluginPackageJson.version,
     private: true,
-    description: "Bundled TraeAPI runtime shipped inside the OpenClaw plugin package.",
+    description: "Bundled TraeClaw runtime shipped inside the OpenClaw plugin package.",
     scripts: {
       quickstart: "node scripts/quickstart.js"
     },

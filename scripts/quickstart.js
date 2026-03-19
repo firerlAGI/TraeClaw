@@ -12,9 +12,9 @@ const ROOT_DIR = path.resolve(__dirname, "..");
 const ENV_PATH = path.join(ROOT_DIR, ".env");
 const ENV_EXAMPLE_PATH = path.join(ROOT_DIR, ".env.example");
 const DEFAULT_PROJECT_PATH = path.join(ROOT_DIR, ".runtime", "trae-project");
-const DEFAULT_PROJECT_README = `# TraeAPI Workspace
+const DEFAULT_PROJECT_README = `# TraeClaw Workspace
 
-This folder was created by the TraeAPI quickstart launcher.
+This folder was created by the TraeClaw quickstart launcher.
 `;
 const DEFAULT_HEALTH_TIMEOUT_MS = 15000;
 const DEFAULT_AUTOMATION_READY_TIMEOUT_MS = 20000;
@@ -67,6 +67,14 @@ function normalizePathInput(value) {
     return normalized.slice(1, -1);
   }
   return normalized;
+}
+
+function deriveQuickstartTargetTitleContains(projectPath) {
+  const normalizedPath = normalizePathInput(projectPath);
+  if (!normalizedPath) {
+    return "";
+  }
+  return path.basename(path.resolve(normalizedPath));
 }
 
 function resolveHomeDirectory(env = process.env) {
@@ -296,6 +304,8 @@ async function ensureConfig() {
     createdEnvFile
   };
   const configuredProjectPath = String(currentValues.TRAE_PROJECT_PATH || process.env.TRAE_PROJECT_PATH || "").trim();
+  const quickstartProjectPathOverride = normalizePathInput(process.env.TRAE_QUICKSTART_PROJECT_PATH || "");
+  const hasQuickstartProjectPathOverride = Boolean(quickstartProjectPathOverride);
 
   let traeBin = String(currentValues.TRAE_BIN || process.env.TRAE_BIN || "").trim();
   if (!pathExists(traeBin)) {
@@ -307,7 +317,7 @@ async function ensureConfig() {
   }
 
   let projectPath = configuredProjectPath;
-  if (!projectPath) {
+  if (!projectPath && !hasQuickstartProjectPathOverride) {
     projectPath = DEFAULT_PROJECT_PATH;
     updates.TRAE_PROJECT_PATH = projectPath;
   }
@@ -319,7 +329,7 @@ async function ensureConfig() {
       updates.TRAE_BIN = traeBin;
     }
 
-    if (projectPath && configuredProjectPath && !pathExists(projectPath)) {
+    if (!hasQuickstartProjectPathOverride && projectPath && configuredProjectPath && !pathExists(projectPath)) {
       const requestedProjectPath = normalizePathInput(await rl.question(`Project path to open in Trae [${projectPath}]: `));
       if (requestedProjectPath) {
         projectPath = path.resolve(requestedProjectPath);
@@ -330,8 +340,23 @@ async function ensureConfig() {
     rl.close();
   }
 
-  ensureProjectDirectory(projectPath);
-  updates.TRAE_PROJECT_PATH = projectPath;
+  if (hasQuickstartProjectPathOverride) {
+    const resolvedProjectPathOverride = path.resolve(quickstartProjectPathOverride);
+    if (!pathExists(resolvedProjectPathOverride)) {
+      throw new Error(`TRAE_QUICKSTART_PROJECT_PATH does not exist: ${resolvedProjectPathOverride}`);
+    }
+    if (!fs.statSync(resolvedProjectPathOverride).isDirectory()) {
+      throw new Error(`TRAE_QUICKSTART_PROJECT_PATH must point to a directory: ${resolvedProjectPathOverride}`);
+    }
+    projectPath = resolvedProjectPathOverride;
+    const targetTitleContains = deriveQuickstartTargetTitleContains(projectPath);
+    if (targetTitleContains) {
+      process.env.TRAE_CDP_TARGET_TITLE_CONTAINS = targetTitleContains;
+    }
+  } else {
+    ensureProjectDirectory(projectPath);
+    updates.TRAE_PROJECT_PATH = projectPath;
+  }
 
   if (Object.keys(updates).length > 0) {
     updateEnvFile(ENV_PATH, updates);
@@ -354,7 +379,9 @@ async function ensureConfig() {
   summary.quickstartProfileSeedSourceDir = String(
     process.env.TRAE_QUICKSTART_PROFILE_SEED_SOURCE_DIR || resolveDefaultTraeUserDataDir()
   ).trim();
-  summary.quickstartOpenChat = isTrueLike(process.env.TRAE_QUICKSTART_OPEN_CHAT, true);
+  summary.quickstartOpenChat = isTrueLike(process.env.TRAE_QUICKSTART_OPEN_CHAT, false);
+  summary.quickstartForceFreshWindow =
+    isTrueLike(process.env.TRAE_QUICKSTART_FORCE_FRESH_WINDOW, false) || hasQuickstartProjectPathOverride;
   return summary;
 }
 
@@ -390,9 +417,37 @@ function requestGatewayEndpoint(host, port, pathname) {
   });
 }
 
-async function checkGatewayHealth(host, port) {
+async function getGatewayHealthSnapshot(host, port) {
   const response = await requestGatewayEndpoint(host, port, "/health");
-  return response?.statusCode === 200;
+  if (response?.statusCode !== 200 || !response.body) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(response.body);
+  } catch {
+    return null;
+  }
+}
+
+function extractGatewayDebuggerPort(snapshot) {
+  const candidates = [
+    snapshot?.data?.automation?.version?.port,
+    snapshot?.data?.automation?.snapshot?.lastReadiness?.version?.port
+  ];
+
+  for (const candidate of candidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+async function checkGatewayHealth(host, port) {
+  return Boolean(await getGatewayHealthSnapshot(host, port));
 }
 
 async function checkGatewayReady(host, port) {
@@ -451,7 +506,7 @@ function openChatPage(config) {
       JSON.stringify(
         {
           code: "QUICKSTART_OPEN_CHAT_SKIPPED",
-          message: "TraeAPI is ready, but the browser could not be opened automatically.",
+          message: "TraeClaw is ready, but the browser could not be opened automatically.",
           chatUrl,
           details: {
             message: error.message
@@ -502,7 +557,7 @@ function printGatewayReadySummary(config, mode, message) {
 }
 
 function printIsolatedWindowNotice(runtimePlan) {
-  printUserSummary("TraeAPI quickstart is switching to a dedicated Trae window.", [
+  printUserSummary("TraeClaw quickstart is switching to a dedicated Trae window.", [
     "Your current Trae window is not automation-ready.",
     `Dedicated debug port: ${runtimePlan.isolated.debuggerPort}`,
     `Dedicated profile: ${runtimePlan.isolated.userDataDir}`
@@ -510,7 +565,7 @@ function printIsolatedWindowNotice(runtimePlan) {
 }
 
 function printQuickstartFailureHints(error) {
-  printUserSummary("TraeAPI quickstart failed.", [
+  printUserSummary("TraeClaw quickstart failed.", [
     error?.message || "Unknown startup error.",
     "Check that Trae is installed and you can sign in.",
     "Check that Trae can open a project window.",
@@ -639,13 +694,16 @@ async function tryLaunchTrae(runtime) {
   }
 }
 
-async function attemptRuntime(runtime) {
-  let readiness = await getAutomationReadinessForRuntime(runtime, 3000);
-  if (readiness?.ready) {
-    return {
-      runtime,
-      readiness
-    };
+async function attemptRuntime(runtime, options = {}) {
+  let readiness = null;
+  if (!options.skipPreflightCheck) {
+    readiness = await getAutomationReadinessForRuntime(runtime, 3000);
+    if (readiness?.ready) {
+      return {
+        runtime,
+        readiness
+      };
+    }
   }
 
   await tryLaunchTrae(runtime);
@@ -667,6 +725,28 @@ async function ensureTraeWindowReady(config) {
     quickstartUserDataDir: config.quickstartUserDataDir,
     traeStartTimeoutMs: config.traeStartTimeoutMs
   });
+
+  if (config.quickstartForceFreshWindow) {
+    const preferredRuntime = config.quickstartUseIsolatedProfile ? runtimePlan.isolated : runtimePlan.configured;
+    if (preferredRuntime.userDataDir) {
+      fs.mkdirSync(preferredRuntime.userDataDir, { recursive: true });
+      seedIsolatedProfileFromExistingTrae(config, preferredRuntime);
+    }
+    const preferredAttempt = await attemptRuntime(preferredRuntime, {
+      skipPreflightCheck: true
+    });
+    if (preferredAttempt.readiness?.ready) {
+      return preferredAttempt;
+    }
+
+    throw Object.assign(
+      new Error(preferredAttempt.readiness?.error?.message || "Trae automation is not ready"),
+      {
+        code: preferredAttempt.readiness?.error?.code || "AUTOMATION_NOT_READY",
+        details: preferredAttempt.readiness?.details || preferredAttempt.readiness?.error?.details || {}
+      }
+    );
+  }
 
   const configuredAttempt = await attemptRuntime(runtimePlan.configured);
   if (configuredAttempt.readiness?.ready) {
@@ -717,16 +797,17 @@ async function ensureTraeWindowReady(config) {
 
 async function main() {
   const config = await ensureConfig();
-  const existingGatewayHealth = await checkGatewayHealth(config.host, config.port);
+  const existingGatewaySnapshot = await getGatewayHealthSnapshot(config.host, config.port);
+  const existingGatewayHealth = Boolean(existingGatewaySnapshot);
   const existingGatewayReady = existingGatewayHealth ? await checkGatewayReady(config.host, config.port) : false;
 
-  if (existingGatewayHealth && existingGatewayReady) {
+  if (existingGatewayHealth && existingGatewayReady && !config.quickstartForceFreshWindow) {
     openChatPage(config);
-    printGatewayReadySummary(config, "attached", "TraeAPI is already running.");
+    printGatewayReadySummary(config, "attached", "TraeClaw is already running.");
     console.log(
       JSON.stringify(
         {
-          message: "TraeAPI gateway is already running",
+          message: "TraeClaw gateway is already running",
           host: config.host,
           port: config.port,
           chatUrl: `http://${config.host}:${config.port}/chat`,
@@ -742,15 +823,25 @@ async function main() {
 
   const launchResult = await ensureTraeWindowReady(config);
 
-  if (existingGatewayHealth && !existingGatewayReady) {
+  if (existingGatewayHealth) {
+    const existingGatewayDebuggerPort = extractGatewayDebuggerPort(existingGatewaySnapshot);
+    if (existingGatewayDebuggerPort !== launchResult.runtime.debuggerPort) {
+      const runningPortLabel = Number.isFinite(existingGatewayDebuggerPort)
+        ? `using debugger port ${existingGatewayDebuggerPort}`
+        : "whose debugger port could not be determined";
+      throw new Error(
+        `A gateway is already running on http://${config.host}:${config.port} ${runningPortLabel}. Stop the existing gateway or relaunch it for debugger port ${launchResult.runtime.debuggerPort}.`
+      );
+    }
+
     const revivedGatewayReady = await waitForGatewayEndpoint(config.host, config.port, "/ready");
     if (revivedGatewayReady) {
       openChatPage(config);
-      printGatewayReadySummary(config, launchResult.runtime.label, "TraeAPI is already running and is now ready.");
+      printGatewayReadySummary(config, launchResult.runtime.label, "TraeClaw is already running and is now ready.");
       console.log(
         JSON.stringify(
           {
-            message: "TraeAPI gateway is already running and is now ready",
+            message: "TraeClaw gateway is already running and is now ready",
             host: config.host,
             port: config.port,
             chatUrl: `http://${config.host}:${config.port}/chat`,
@@ -765,7 +856,7 @@ async function main() {
     }
 
     throw new Error(
-      `A gateway is already running on http://${config.host}:${config.port}, but it did not become ready. Close the existing gateway or change PORT.`
+      `A gateway is already running on http://${config.host}:${config.port} using debugger port ${launchResult.runtime.debuggerPort}, but it did not become ready. Close the existing gateway or change PORT.`
     );
   }
 
@@ -789,11 +880,11 @@ async function main() {
   }
 
   openChatPage(config);
-  printGatewayReadySummary(config, launchResult.runtime.label, "TraeAPI quickstart is ready.");
+  printGatewayReadySummary(config, launchResult.runtime.label, "TraeClaw quickstart is ready.");
   console.log(
     JSON.stringify(
       {
-        message: "TraeAPI quickstart is ready",
+        message: "TraeClaw quickstart is ready",
         envFile: ENV_PATH,
         traeBin: config.traeBin,
         projectPath: config.projectPath,
@@ -839,8 +930,11 @@ if (require.main === module) {
 
 module.exports = {
   buildTraeCandidates,
+  deriveQuickstartTargetTitleContains,
   detectTraeBinary,
+  extractGatewayDebuggerPort,
   getTraeBinaryPromptLabel,
+  getGatewayHealthSnapshot,
   main,
   resolveDefaultTraeUserDataDir
 };

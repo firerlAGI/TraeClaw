@@ -1,12 +1,12 @@
-# TraeAPI
+# TraeClaw
 
 [Chinese Home](README.md) | [Chinese Mirror](README.zh-CN.md)
 
-TraeAPI is a local bridge that lets OpenClaw use the Trae desktop app as an IDE tool.
+TraeClaw is a local bridge that lets OpenClaw use the Trae desktop app as an IDE tool.
 
 Target flow:
 
-`OpenClaw -> trae_delegate -> TraeAPI -> Trae desktop app`
+`OpenClaw -> trae_delegate -> TraeClaw -> Trae desktop app`
 
 ## Current Status
 
@@ -22,7 +22,7 @@ Direct local HTTP API usage is still available for experiments, but it is no lon
 If you just want the shortest working path, the recommended flow today is:
 
 - use macOS
-- let OpenClaw install `traeelectronapi` from npm
+- let OpenClaw install `traeclaw` from npm
 - then verify `trae_status` and `trae_delegate`
 
 ## One-Line Prompt For OpenClaw
@@ -30,7 +30,7 @@ If you just want the shortest working path, the recommended flow today is:
 You can paste the following sentence directly into OpenClaw:
 
 ```text
-Please read AGENTS.md and AI_INSTALL.zh-CN.md from https://github.com/firerlAGI/TraeElectronAPI first, then install and enable traeelectronapi (trae-ide) from npm on macOS, verify openclaw plugins info trae-ide and openclaw config validate, remind me to restart OpenClaw Gateway, run trae_status once, and then tell me how to use trae_delegate next.
+Please read AGENTS.md and AI_INSTALL.zh-CN.md from https://github.com/firerlAGI/TraeClaw first, then install and enable traeclaw (trae-ide) from npm on macOS, verify openclaw plugins info trae-ide and openclaw config validate, remind me to restart OpenClaw Gateway, run trae_status once, and then tell me how to use trae_delegate next.
 ```
 
 For a longer Chinese conversation template, see [docs/openclaw-chat-prompts.zh-CN.md](docs/openclaw-chat-prompts.zh-CN.md).
@@ -58,7 +58,7 @@ Success is not "a script finished". Success means all of the following are true:
 If you want a stable, update-friendly installation path for OpenClaw users, prefer the npm package:
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 openclaw config set plugins.entries.trae-ide.enabled true --strict-json
 openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
@@ -80,7 +80,7 @@ openclaw plugins update trae-ide
 
 Notes:
 
-- the npm package already bundles the OpenClaw plugin and the full TraeAPI runtime
+- the npm package already bundles the OpenClaw plugin and the full TraeClaw runtime
 - the homepage now recommends the npm package, not manual plugin-directory copying
 - do not ask OpenClaw to run `openclaw plugins install <github-url>` or a git spec
 

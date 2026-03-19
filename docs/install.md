@@ -1,6 +1,6 @@
 # Install Guide for OpenClaw Users
 
-This guide assumes your goal is to let OpenClaw call Trae as an IDE tool through TraeAPI.
+This guide assumes your goal is to let OpenClaw call Trae as an IDE tool through TraeClaw.
 
 ## Recommended Path
 
@@ -9,14 +9,14 @@ For most OpenClaw users on Windows or macOS, the intended setup is:
 1. Install Node.js 22 or newer.
 2. Clone or download this repository.
 3. Run `npm install`.
-4. Start TraeAPI:
+4. Start TraeClaw:
    - Windows: double-click [start-traeapi.cmd](../start-traeapi.cmd)
    - macOS: double-click [start-traeapi.command](../start-traeapi.command)
 5. Load the plugin from [../integrations/openclaw-trae-plugin](../integrations/openclaw-trae-plugin/README.en.md) in OpenClaw.
 6. Restart OpenClaw Gateway.
 7. Ask OpenClaw to call `trae_status` or `trae_delegate`.
 
-On first launch, TraeAPI will try to:
+On first launch, TraeClaw will try to:
 
 - create `.env` from [`.env.example`](../.env.example)
 - detect the local Trae executable automatically
@@ -52,7 +52,7 @@ If the repository is not local yet, use the bootstrap script instead:
 If you want users to receive plugin updates directly through OpenClaw later, install the npm package:
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 ```
 
@@ -64,7 +64,7 @@ openclaw plugins update trae-ide
 
 Two important constraints:
 
-- the npm package now ships both the OpenClaw plugin and the full TraeAPI runtime
+- the npm package now ships both the OpenClaw plugin and the full TraeClaw runtime
 - when users run `openclaw plugins update trae-ide`, the plugin and gateway capabilities update together
 
 To let the plugin auto-start the bundled runtime, also set:

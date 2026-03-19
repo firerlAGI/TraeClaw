@@ -12,7 +12,7 @@ $ErrorActionPreference = "Stop"
 
 function Write-Step {
   param([string]$Message)
-  Write-Host "[TraeAPI] $Message"
+  Write-Host "[TraeClaw] $Message"
 }
 
 function Quote-ShellPath {
@@ -163,7 +163,7 @@ if (-not (Test-Path $pluginDir)) {
 }
 
 if (-not (Test-Path $quickstartCommand)) {
-  throw "TraeAPI launcher not found: $quickstartCommand"
+  throw "TraeClaw launcher not found: $quickstartCommand"
 }
 $quickstartCommandConfig = Quote-ShellPath $quickstartCommand
 
@@ -185,7 +185,7 @@ Set-ConfigValue -Path "plugins.entries.trae-ide.config.autoStart" -Value $autoSt
 Set-ConfigValue -Path "plugins.entries.trae-ide.config.quickstartCommand" -Value $quickstartCommandConfig
 Set-ConfigValue -Path "plugins.entries.trae-ide.config.quickstartCwd" -Value $resolvedRepoRoot
 
-$toolIds = @("trae-ide", "trae_status", "trae_new_chat", "trae_delegate")
+$toolIds = @("trae-ide", "trae_status", "trae_new_chat", "trae_open_project", "trae_switch_mode", "trae_delegate")
 $rootPolicyMode = Update-ToolPolicy -AllowPath "tools.allow" -AlsoAllowPath "tools.alsoAllow" -ToolIds $toolIds
 Write-Step "Updated root tool policy via tools.$rootPolicyMode."
 
@@ -206,7 +206,7 @@ if ($agentsRaw) {
     $mode = Update-ToolPolicy `
       -AllowPath "agents.list[$i].tools.allow" `
       -AlsoAllowPath "agents.list[$i].tools.alsoAllow" `
-      -ToolIds @("trae_status", "trae_new_chat", "trae_delegate")
+      -ToolIds @("trae_status", "trae_new_chat", "trae_open_project", "trae_switch_mode", "trae_delegate")
     Write-Step "Updated agent[$i] tool policy via $mode."
   }
 }
@@ -217,7 +217,7 @@ if (-not $SkipValidate) {
 }
 
 Write-Host ""
-Write-Host "TraeAPI + OpenClaw integration install completed."
+Write-Host "TraeClaw + OpenClaw integration install completed."
 Write-Host "- Repo root: $resolvedRepoRoot"
 Write-Host "- Plugin id: trae-ide"
 Write-Host "- Base URL: $BaseUrl"

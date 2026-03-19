@@ -1,14 +1,28 @@
 # OpenClaw 对话安装模板
 
-这份文档面向中文用户，目标是让用户直接用自然语言对 OpenClaw 说话，由 OpenClaw 完成 TraeAPI + Trae 插件安装。
+这份文档面向中文用户，目标是让用户直接用自然语言对 OpenClaw 说话，由 OpenClaw 完成 TraeClaw + Trae 插件安装。
+
+## npm 包安装最短说法
+
+如果你希望用户优先走稳定发布链路，而不是本地仓库脚本，最推荐直接说：
+
+```text
+请先阅读这个仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md，然后在 macOS 上通过 npm 安装并启用 traeclaw（trae-ide），验证 openclaw plugins info trae-ide 和 openclaw config validate，提醒我重启 OpenClaw Gateway，再执行一次 trae_status，并告诉我接下来怎么用 trae_delegate。
+```
+
+这条说法适合：
+
+- 你要的是稳定安装入口
+- 你希望后续通过 `openclaw plugins update trae-ide` 更新
+- 你不想让用户手工处理本地仓库路径
 
 ## 本地仓库一键安装说法
 
 如果仓库已经在本地，最推荐用户直接这样说：
 
 ```text
-请帮我把本地 TraeAPI 仓库安装到 OpenClaw。
-仓库路径是：E:\path\to\TraeElectronAPI
+请帮我把本地 TraeClaw 仓库安装到 OpenClaw。
+仓库路径是：E:\path\to\TraeClaw
 
 请先阅读仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md。
 如果我是 Windows 用户，请直接在仓库根目录执行：
@@ -33,8 +47,8 @@ bash ./scripts/install-openclaw-integration.sh
 如果仓库还不在本地，最推荐用户直接这样说：
 
 ```text
-请帮我从 GitHub 安装 TraeAPI，让你可以通过 Trae 这个 IDE 工具来执行任务。
-仓库地址是：https://github.com/firerlAGI/TraeElectronAPI
+请帮我从 GitHub 安装 TraeClaw，让你可以通过 Trae 这个 IDE 工具来执行任务。
+仓库地址是：https://github.com/firerlAGI/TraeClaw
 请优先按仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md 执行。
 
 如果我是 Windows 用户，请优先执行 bootstrap-openclaw-integration.ps1。
@@ -48,7 +62,7 @@ bash ./scripts/install-openclaw-integration.sh
 如果用户想少说一点，可以直接用：
 
 ```text
-帮我安装 TraeAPI 的 OpenClaw 集成。
+帮我安装 TraeClaw 的 OpenClaw 集成。
 如果仓库在本地，请直接运行对应平台的 install-openclaw-integration 脚本。
 如果仓库不在本地，请优先运行对应平台的 bootstrap-openclaw-integration 脚本。
 安装后请验证 trae_status。

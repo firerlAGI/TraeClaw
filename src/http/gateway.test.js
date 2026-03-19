@@ -7,9 +7,12 @@ const { createGatewayServer, startGatewayServer } = require("./gateway");
 function createMockAutomationDriver() {
   const calls = [];
   const preparedSessions = [];
+  const modeSwitches = [];
+  let currentMode = "solo";
   return {
     calls,
     preparedSessions,
+    modeSwitches,
     async getReadiness() {
       return {
         ready: true,
@@ -21,7 +24,8 @@ function createMockAutomationDriver() {
         },
         details: {
           composerFound: true,
-          sendButtonFound: true
+          sendButtonFound: true,
+          currentMode
         }
       };
     },
@@ -29,6 +33,34 @@ function createMockAutomationDriver() {
       return {
         mode: "mock",
         queuedRequestCount: 0
+      };
+    },
+    async switchMode(payload) {
+      const previousMode = currentMode;
+      modeSwitches.push(payload);
+      currentMode = payload.mode;
+      return {
+        status: "ok",
+        requestId: `mode-${modeSwitches.length}`,
+        channel: payload.channel || "trae:mode:switch",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        mode: currentMode,
+        previousMode,
+        changed: currentMode !== previousMode,
+        target: {
+          id: "mock-target",
+          title: "Mock Trae Window",
+          url: "mock://trae"
+        },
+        details: {
+          before: {
+            currentMode: previousMode
+          },
+          after: {
+            currentMode
+          }
+        }
       };
     },
     normalizeError(error, fallbackCode = "AUTOMATION_ERROR") {
@@ -398,6 +430,7 @@ test("openapi routes expose machine-readable specs without auth", async () => {
     assert.equal(openApiJsonResponse.json.servers[0].url, `http://127.0.0.1:${port}`);
     assert.ok(openApiJsonResponse.json.paths["/v1/sessions"]);
     assert.ok(openApiJsonResponse.json.paths["/v1/chat"]);
+    assert.ok(openApiJsonResponse.json.paths["/v1/mode"]);
 
     const openApiYamlResponse = await sendJsonRequest(port, {
       method: "GET",
@@ -408,6 +441,44 @@ test("openapi routes expose machine-readable specs without auth", async () => {
     assert.equal(String(openApiYamlResponse.headers["content-type"]).startsWith("application/yaml"), true);
     assert.match(openApiYamlResponse.text, /openapi: "3\.1\.0"/);
     assert.match(openApiYamlResponse.text, /"\/v1\/sessions":/);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test("mode switch endpoint validates the requested mode and forwards it to the automation driver", async () => {
+  const driver = createMockAutomationDriver();
+  const { server } = createGatewayServer({
+    automationDriver: driver
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+
+  try {
+    const response = await sendJsonRequest(port, {
+      method: "POST",
+      path: "/v1/mode",
+      body: {
+        mode: "ide"
+      }
+    });
+
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.json.success, true);
+    assert.equal(response.json.data.mode, "ide");
+    assert.equal(driver.modeSwitches.length, 1);
+    assert.equal(driver.modeSwitches[0].mode, "ide");
+
+    const invalidResponse = await sendJsonRequest(port, {
+      method: "POST",
+      path: "/v1/mode",
+      body: {
+        mode: "pair"
+      }
+    });
+
+    assert.equal(invalidResponse.statusCode, 400);
+    assert.equal(invalidResponse.json.code, "INVALID_MODE");
   } finally {
     await new Promise((resolve) => server.close(resolve));
   }

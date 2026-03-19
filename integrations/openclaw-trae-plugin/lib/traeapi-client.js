@@ -199,7 +199,7 @@ function formatListSection(title, items) {
 
 function formatStatusToolResult(status) {
   const lines = [
-    "TraeAPI status",
+    "TraeClaw status",
     `Base URL: ${status.baseUrl}`,
     `Gateway reachable: ${status.gatewayReachable ? "yes" : "no"}`,
     `Automation ready: ${status.ready ? "yes" : "no"}`
@@ -241,6 +241,37 @@ function formatNewChatToolResult(result) {
   return lines.join("\n");
 }
 
+function extractHealthWindowTitle(response) {
+  const candidates = [
+    response?.json?.data?.automation?.target?.title,
+    response?.json?.data?.automation?.snapshot?.lastReadiness?.target?.title
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = String(candidate || "").trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return "";
+}
+
+function matchesProjectWindowTitle(windowTitle, projectName) {
+  const normalizedTitle = String(windowTitle || "").trim().toLowerCase();
+  const normalizedProjectName = String(projectName || "").trim().toLowerCase();
+  return Boolean(normalizedTitle && normalizedProjectName && normalizedTitle.includes(normalizedProjectName));
+}
+
+function readResponseErrorMessage(response, fallbackMessage) {
+  return (
+    response?.json?.message ||
+    response?.json?.details?.message ||
+    response?.error?.message ||
+    fallbackMessage
+  );
+}
+
 function resolveReplyText(result) {
   const responseText = String(result?.data?.result?.response?.text || "").trim();
   if (responseText) {
@@ -280,6 +311,44 @@ function formatDelegateToolResult(result, options = {}) {
   return sections.join("\n\n");
 }
 
+function formatOpenProjectToolResult(result) {
+  const lines = [
+    result.alreadyOpen ? "Trae project is already open." : "Trae project opened.",
+    `Project: ${result.projectName || "unknown"}`,
+    `Path: ${result.projectPath || "unknown"}`,
+    `Gateway ready: ${result.ready ? "yes" : "no"}`
+  ];
+
+  if (result.windowTitle) {
+    lines.push(`Window title: ${result.windowTitle}`);
+  }
+  if (result.autoStarted) {
+    lines.push("Quickstart triggered: yes");
+  }
+
+  return lines.join("\n");
+}
+
+function formatSwitchModeToolResult(result) {
+  const data = result?.data || {};
+  const changed = data.changed === true;
+  const lines = [
+    changed ? "Trae mode switched." : "Trae mode already active.",
+    `Current mode: ${data.mode || "unknown"}`,
+    `Previous mode: ${data.previousMode || "unknown"}`,
+    `Changed: ${changed ? "yes" : "no"}`
+  ];
+
+  if (data.target?.title) {
+    lines.push(`Window title: ${data.target.title}`);
+  }
+  if (result?.autoStarted) {
+    lines.push("Quickstart triggered: yes");
+  }
+
+  return lines.join("\n");
+}
+
 class TraeApiClient {
   constructor(config) {
     this.config = config;
@@ -302,17 +371,28 @@ class TraeApiClient {
       if (error.name === "AbortError") {
         throw new Error(`Timed out while requesting ${pathname} from ${this.config.baseUrl}`);
       }
-      throw new Error(`Failed to reach TraeAPI at ${this.config.baseUrl}: ${error.message}`);
+      throw new Error(`Failed to reach TraeClaw at ${this.config.baseUrl}: ${error.message}`);
     } finally {
       clearTimeout(timeout);
     }
   }
 
-  async startQuickstart() {
+  async startQuickstart(options = {}) {
     if (!this.config.quickstartCommand) {
       throw new Error(
-        "TraeAPI is not ready and no quickstartCommand is configured. Start TraeAPI first or configure plugins.entries.trae-ide.config.quickstartCommand."
+        "TraeClaw is not ready and no quickstartCommand is configured. Start TraeClaw first or configure plugins.entries.trae-ide.config.quickstartCommand."
       );
+    }
+
+    const env = {
+      ...process.env
+    };
+    for (const [key, value] of Object.entries(options.envOverrides || {})) {
+      if (value === undefined || value === null || value === "") {
+        delete env[key];
+        continue;
+      }
+      env[key] = String(value);
     }
 
     const child = spawn(this.config.quickstartCommand, {
@@ -320,9 +400,16 @@ class TraeApiClient {
       detached: true,
       stdio: "ignore",
       shell: true,
-      windowsHide: process.platform === "win32"
+      windowsHide: process.platform === "win32",
+      env
     });
     child.unref();
+  }
+
+  async getHealth() {
+    return this.request("/health", {
+      timeoutMs: 5000
+    });
   }
 
   async waitForReady(deadlineMs) {
@@ -387,9 +474,7 @@ class TraeApiClient {
 
   async getStatus({ allowAutoStart = false } = {}) {
     const readiness = await this.ensureReady({ allowAutoStart });
-    const healthResponse = await this.request("/health", {
-      timeoutMs: 5000
-    }).catch(() => null);
+    const healthResponse = await this.getHealth().catch(() => null);
 
     return {
       baseUrl: this.config.baseUrl,
@@ -410,6 +495,35 @@ class TraeApiClient {
     };
   }
 
+  async waitForProject(expectedProjectName, previousTitle = "", deadlineMs = this.config.readyTimeoutMs) {
+    const startedAt = Date.now();
+    const normalizedPreviousTitle = String(previousTitle || "").trim();
+    let lastHealth = null;
+
+    while (Date.now() - startedAt < deadlineMs) {
+      lastHealth = await this.getHealth().catch((error) => ({
+        ok: false,
+        status: 0,
+        json: null,
+        text: "",
+        error
+      }));
+
+      const currentTitle = extractHealthWindowTitle(lastHealth);
+      const ready = Boolean(lastHealth?.ok && lastHealth?.json?.data?.automation?.ready === true);
+      const titleMatchesProject = matchesProjectWindowTitle(currentTitle, expectedProjectName);
+      const titleChanged = Boolean(currentTitle && normalizedPreviousTitle && currentTitle !== normalizedPreviousTitle);
+      const titleInitialized = Boolean(currentTitle && !normalizedPreviousTitle);
+      if (ready && (titleMatchesProject || titleChanged || titleInitialized)) {
+        return lastHealth;
+      }
+
+      await sleep(1000);
+    }
+
+    return lastHealth;
+  }
+
   async createSession({ metadata = {}, prepare = false, allowAutoStart = false } = {}) {
     if (prepare) {
       const readiness = await this.ensureReady({ allowAutoStart });
@@ -418,7 +532,7 @@ class TraeApiClient {
           readiness.readyResponse?.json?.message ||
           readiness.readyResponse?.json?.details?.message ||
           readiness.readyResponse?.error?.message ||
-          `TraeAPI at ${this.config.baseUrl} is not ready`;
+          `TraeClaw at ${this.config.baseUrl} is not ready`;
         throw new Error(errorMessage);
       }
     }
@@ -435,7 +549,7 @@ class TraeApiClient {
     });
 
     if (!response.ok || !response.json?.success) {
-      throw new Error(response.json?.message || `TraeAPI request failed with status ${response.status}`);
+      throw new Error(response.json?.message || `TraeClaw request failed with status ${response.status}`);
     }
 
     return response.json;
@@ -452,9 +566,113 @@ class TraeApiClient {
     });
   }
 
-  async delegateTask({ task, sessionId, allowAutoStart = true }) {
+  async openProject({ projectPath } = {}) {
+    const normalizedProjectPath = String(projectPath || "").trim();
+    if (!normalizedProjectPath) {
+      throw new Error("trae_open_project requires a non-empty projectPath");
+    }
+
+    const resolvedProjectPath = path.resolve(normalizedProjectPath);
+    if (!fs.existsSync(resolvedProjectPath)) {
+      throw new Error(`Project path does not exist: ${resolvedProjectPath}`);
+    }
+    if (!fs.statSync(resolvedProjectPath).isDirectory()) {
+      throw new Error(`Project path must be a directory: ${resolvedProjectPath}`);
+    }
+
+    const projectName = path.basename(resolvedProjectPath);
+    const currentHealth = await this.getHealth().catch(() => null);
+    const previousTitle = extractHealthWindowTitle(currentHealth);
+    const alreadyReady = Boolean(currentHealth?.ok && currentHealth?.json?.data?.automation?.ready === true);
+    if (alreadyReady && matchesProjectWindowTitle(previousTitle, projectName)) {
+      return {
+        projectPath: resolvedProjectPath,
+        projectName,
+        baseUrl: this.config.baseUrl,
+        ready: true,
+        autoStarted: false,
+        alreadyOpen: true,
+        windowTitle: previousTitle
+      };
+    }
+
+    await this.startQuickstart({
+      envOverrides: {
+        TRAE_QUICKSTART_PROJECT_PATH: resolvedProjectPath,
+        TRAE_QUICKSTART_FORCE_FRESH_WINDOW: "1"
+      }
+    });
+
+    const waitedHealth = await this.waitForProject(projectName, previousTitle, this.config.readyTimeoutMs);
+    const windowTitle = extractHealthWindowTitle(waitedHealth);
+    const ready = Boolean(waitedHealth?.ok && waitedHealth?.json?.data?.automation?.ready === true);
+    const projectDetected =
+      matchesProjectWindowTitle(windowTitle, projectName) ||
+      Boolean(windowTitle && previousTitle && windowTitle !== previousTitle) ||
+      Boolean(windowTitle && !previousTitle);
+
+    if (!ready || !projectDetected) {
+      throw new Error(
+        readResponseErrorMessage(
+          waitedHealth,
+          `TraeClaw at ${this.config.baseUrl} did not switch to project ${projectName} in time`
+        )
+      );
+    }
+
+    return {
+      projectPath: resolvedProjectPath,
+      projectName,
+      baseUrl: this.config.baseUrl,
+      ready: true,
+      autoStarted: true,
+      alreadyOpen: false,
+      windowTitle
+    };
+  }
+
+  async switchMode({ mode, allowAutoStart = true } = {}) {
+    const normalizedMode = String(mode || "").trim().toLowerCase();
+    if (normalizedMode !== "solo" && normalizedMode !== "ide") {
+      throw new Error('trae_switch_mode requires mode to be either "solo" or "ide"');
+    }
+
+    const readiness = await this.ensureReady({ allowAutoStart });
+    if (!readiness.ready) {
+      throw new Error(
+        readResponseErrorMessage(readiness.readyResponse, `TraeClaw at ${this.config.baseUrl} is not ready`)
+      );
+    }
+
+    const response = await this.request("/v1/mode", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: {
+        mode: normalizedMode
+      }
+    });
+
+    if (!response.ok || !response.json?.success) {
+      throw new Error(response.json?.message || `TraeClaw request failed with status ${response.status}`);
+    }
+
+    return {
+      ...response.json,
+      autoStarted: readiness.autoStarted
+    };
+  }
+
+  async delegateTask({ task, sessionId, allowAutoStart = true, projectPath } = {}) {
     if (typeof task !== "string" || !task.trim()) {
       throw new Error("trae_delegate requires a non-empty task string");
+    }
+
+    if (typeof projectPath === "string" && projectPath.trim()) {
+      await this.openProject({
+        projectPath
+      });
     }
 
     const readiness = await this.ensureReady({ allowAutoStart });
@@ -463,7 +681,7 @@ class TraeApiClient {
         readiness.readyResponse?.json?.message ||
         readiness.readyResponse?.json?.details?.message ||
         readiness.readyResponse?.error?.message ||
-        `TraeAPI at ${this.config.baseUrl} is not ready`;
+        `TraeClaw at ${this.config.baseUrl} is not ready`;
       throw new Error(errorMessage);
     }
 
@@ -485,7 +703,7 @@ class TraeApiClient {
     });
 
     if (!response.ok || !response.json?.success) {
-      throw new Error(response.json?.message || `TraeAPI request failed with status ${response.status}`);
+      throw new Error(response.json?.message || `TraeClaw request failed with status ${response.status}`);
     }
 
     return response.json;
@@ -505,7 +723,9 @@ module.exports = {
   createTraeApiClient,
   formatDelegateToolResult,
   formatNewChatToolResult,
+  formatOpenProjectToolResult,
   formatStatusToolResult,
+  formatSwitchModeToolResult,
   getBundledQuickstartDefaults,
   resolveReplyText,
   resolveBundledRuntimeRoot,

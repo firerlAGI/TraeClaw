@@ -1,7 +1,12 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("node:path");
-const { buildTraeCandidates, resolveDefaultTraeUserDataDir } = require("./quickstart");
+const {
+  buildTraeCandidates,
+  deriveQuickstartTargetTitleContains,
+  extractGatewayDebuggerPort,
+  resolveDefaultTraeUserDataDir
+} = require("./quickstart");
 
 test("resolveDefaultTraeUserDataDir returns the macOS Trae profile path", () => {
   assert.equal(
@@ -20,4 +25,43 @@ test("buildTraeCandidates includes macOS bundle and executable candidates", () =
     true
   );
   assert.equal(candidates.includes(path.join("/Users/example", "Applications", "Trae.app")), true);
+});
+
+test("extractGatewayDebuggerPort reads the active debugger port from health snapshots", () => {
+  assert.equal(
+    extractGatewayDebuggerPort({
+      data: {
+        automation: {
+          version: {
+            port: 9333
+          }
+        }
+      }
+    }),
+    9333
+  );
+
+  assert.equal(
+    extractGatewayDebuggerPort({
+      data: {
+        automation: {
+          snapshot: {
+            lastReadiness: {
+              version: {
+                port: 9444
+              }
+            }
+          }
+        }
+      }
+    }),
+    9444
+  );
+});
+
+test("deriveQuickstartTargetTitleContains uses the project folder name", () => {
+  assert.equal(
+    deriveQuickstartTargetTitleContains("/Users/fire/Projects/TraeClaw-main/.runtime/manual-open-project-target"),
+    "manual-open-project-target"
+  );
 });

@@ -321,9 +321,9 @@ function createGatewayServer(options = {}) {
     return sessions.get(sessionId);
   }
 
-  async function requireAutomationDriver() {
-    if (!automationDriver || typeof automationDriver.dispatchRequest !== "function") {
-      throw new ApiError("AUTOMATION_DRIVER_UNAVAILABLE", "Automation driver is unavailable", 503);
+  async function requireAutomationDriver(capability = "dispatchRequest", unavailableCode = "AUTOMATION_DRIVER_UNAVAILABLE", unavailableMessage) {
+    if (!automationDriver || typeof automationDriver[capability] !== "function") {
+      throw new ApiError(unavailableCode, unavailableMessage || "Automation driver is unavailable", 503);
     }
     const automationState = await getAutomationState();
     if (!automationState.ready) {
@@ -491,6 +491,16 @@ function createGatewayServer(options = {}) {
       throw new ApiError("INVALID_MESSAGE_CONTENT", "content must be a non-empty string", 400);
     }
     return body;
+  }
+
+  function assertValidModeBody(body) {
+    const mode = String(body?.mode || "").trim().toLowerCase();
+    if (mode !== "solo" && mode !== "ide") {
+      throw new ApiError("INVALID_MODE", 'mode must be either "solo" or "ide"', 400);
+    }
+    return {
+      mode
+    };
   }
 
   function resolveChatSession(body) {
@@ -759,6 +769,41 @@ function createGatewayServer(options = {}) {
     writeApiSuccess(res, 200, data, meta);
   }
 
+  async function handleSwitchMode(req, res, pathname, meta) {
+    const replayed = getIdempotencyEntry(req.method, pathname, meta.idempotencyKey);
+    if (replayed) {
+      return writeApiSuccess(res, replayed.statusCode, replayed.data, {
+        ...meta,
+        replayed: true
+      });
+    }
+
+    const body = assertValidModeBody(await readJsonBody(req));
+    const { driver } = await requireAutomationDriver(
+      "switchMode",
+      "AUTOMATION_MODE_SWITCH_UNAVAILABLE",
+      "Trae automation does not support mode switching"
+    );
+
+    try {
+      const result = await driver.switchMode({
+        channel: "trae:mode:switch",
+        mode: body.mode
+      });
+      setIdempotencyEntry(req.method, pathname, meta.idempotencyKey, {
+        statusCode: 200,
+        data: result
+      });
+      writeApiSuccess(res, 200, result, meta);
+    } catch (error) {
+      const normalizedError =
+        typeof driver.normalizeError === "function"
+          ? driver.normalizeError(error, "AUTOMATION_MODE_SWITCH_FAILED")
+          : normalizeAutomationError(error, "AUTOMATION_MODE_SWITCH_FAILED");
+      throw new ApiError(normalizedError.code, normalizedError.message, 502, normalizedError.details);
+    }
+  }
+
   async function handleChatStream(req, res, meta) {
     const body = assertValidMessageBody(await readJsonBody(req));
     const { session, sessionCreated } = resolveChatSession(body);
@@ -844,6 +889,12 @@ function createGatewayServer(options = {}) {
         statusCode = 200;
         outcome = "stream";
         return await handleChatStream(req, res, meta);
+      }
+
+      if (pathname === "/v1/mode" && req.method === "POST") {
+        statusCode = 200;
+        outcome = "success";
+        return await handleSwitchMode(req, res, pathname, meta);
       }
 
       const streamSessionId = parseSessionIdFromPath(pathname, /^\/v1\/sessions\/([^/]+)\/messages\/stream$/);

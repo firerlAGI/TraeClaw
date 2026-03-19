@@ -1,12 +1,12 @@
-# TraeAPI
+# TraeClaw
 
 [README 首页](README.md) | [English](README.en.md)
 
-TraeAPI 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本地桥接服务。
+TraeClaw 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本地桥接服务。
 
 目标链路：
 
-`OpenClaw -> trae_delegate -> TraeAPI -> Trae 桌面端`
+`OpenClaw -> trae_delegate -> TraeClaw -> Trae 桌面端`
 
 ## 当前状态
 
@@ -22,7 +22,7 @@ TraeAPI 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本
 如果你只想尽快用起来，当前最推荐的路径是：
 
 - 用 macOS
-- 让 OpenClaw 通过 npm 安装 `traeelectronapi`
+- 让 OpenClaw 通过 npm 安装 `traeclaw`
 - 然后验证 `trae_status` 和 `trae_delegate`
 
 ## 给 OpenClaw 的一句话提示词
@@ -30,7 +30,7 @@ TraeAPI 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本
 把下面这句话直接发给 OpenClaw 即可：
 
 ```text
-请先阅读 https://github.com/firerlAGI/TraeElectronAPI 仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md，然后在 macOS 上通过 npm 安装并启用 traeelectronapi（trae-ide），验证 openclaw plugins info trae-ide 和 openclaw config validate，提醒我重启 OpenClaw Gateway，再执行一次 trae_status，并告诉我接下来怎么用 trae_delegate。
+请先阅读 https://github.com/firerlAGI/TraeClaw 仓库里的 AGENTS.md 和 AI_INSTALL.zh-CN.md，然后在 macOS 上通过 npm 安装并启用 traeclaw（trae-ide），验证 openclaw plugins info trae-ide 和 openclaw config validate，提醒我重启 OpenClaw Gateway，再执行一次 trae_status，并告诉我接下来怎么用 trae_delegate。
 ```
 
 更完整的对话模板见 [docs/openclaw-chat-prompts.zh-CN.md](docs/openclaw-chat-prompts.zh-CN.md)。
@@ -58,7 +58,7 @@ TraeAPI 是一个让 OpenClaw 把 Trae 桌面端当作 IDE 工具来调用的本
 如果你的目标是给 OpenClaw 用户一个可持续更新的稳定入口，优先使用 npm 包：
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 openclaw config set plugins.entries.trae-ide.enabled true --strict-json
 openclaw config set plugins.entries.trae-ide.config.autoStart true --strict-json
@@ -80,7 +80,7 @@ openclaw plugins update trae-ide
 
 注意：
 
-- npm 包里已经包含 OpenClaw 插件和完整 TraeAPI runtime
+- npm 包里已经包含 OpenClaw 插件和完整 TraeClaw runtime
 - 当前主页推荐的是“安装 npm 包”，不是“手动拷贝本地插件目录”
 - 不要让 OpenClaw 执行 `openclaw plugins install <github-url>` 或 git spec
 

@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "TraeAPI HTTP API",
+    "title": "TraeClaw HTTP API",
     "version": "0.2.1",
-    "description": "Local HTTP bridge for Trae desktop backed by Chrome DevTools Protocol and DOM automation. This service is loopback-only and is not an official Trae API."
+    "description": "Local HTTP bridge for Trae desktop backed by Chrome DevTools Protocol and DOM automation. TraeClaw is loopback-only and is not an official Trae API."
   },
   "servers": [
     {
@@ -23,6 +23,10 @@
     {
       "name": "messages",
       "description": "Prompt submission and response streaming"
+    },
+    {
+      "name": "automation",
+      "description": "Direct automation actions against the attached Trae window"
     }
   ],
   "components": {
@@ -225,6 +229,10 @@
           "metadata": {
             "type": "object",
             "additionalProperties": true
+          },
+          "prepare": {
+            "type": "boolean",
+            "description": "When true, the gateway immediately switches Trae into a fresh conversation for this session."
           }
         }
       },
@@ -269,6 +277,22 @@
         },
         "required": [
           "content"
+        ]
+      },
+      "ModeSwitchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "ide"
+            ]
+          }
+        },
+        "required": [
+          "mode"
         ]
       },
       "MessageEvent": {
@@ -363,6 +387,68 @@
           "events",
           "chunks",
           "response"
+        ]
+      },
+      "ModeSwitchResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "requestId": {
+            "type": "string"
+          },
+          "channel": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finishedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "solo",
+              "ide"
+            ]
+          },
+          "previousMode": {
+            "type": "string"
+          },
+          "changed": {
+            "type": "boolean"
+          },
+          "target": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "object",
+                "additionalProperties": true
+              }
+            ]
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "status",
+          "requestId",
+          "channel",
+          "startedAt",
+          "finishedAt",
+          "mode",
+          "previousMode",
+          "changed",
+          "details"
         ]
       }
     },
@@ -663,13 +749,78 @@
         }
       }
     },
+    "/v1/mode": {
+      "post": {
+        "tags": [
+          "automation"
+        ],
+        "summary": "Switch Trae between SOLO and IDE modes",
+        "description": "Clicks the visible Trae mode tab and waits until the requested mode becomes active.",
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/RequestIdHeader"
+          },
+          {
+            "$ref": "#/components/parameters/IdempotencyKeyHeader"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModeSwitchRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mode switched",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "const": true
+                    },
+                    "code": {
+                      "type": "string",
+                      "const": "OK"
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/ModeSwitchResult"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/ApiMeta"
+                    }
+                  },
+                  "required": [
+                    "success",
+                    "code",
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "default": {
+            "$ref": "#/components/responses/Error"
+          }
+        }
+      }
+    },
     "/v1/sessions": {
       "post": {
         "tags": [
           "sessions"
         ],
         "summary": "Create a logical gateway session",
-        "description": "Creates an in-memory session used to associate later message requests.",
+        "description": "Creates an in-memory session used to associate later message requests. When prepare is true, the gateway also clicks Trae's new chat action immediately.",
         "parameters": [
           {
             "$ref": "#/components/parameters/RequestIdHeader"
@@ -711,10 +862,25 @@
                       "properties": {
                         "session": {
                           "$ref": "#/components/schemas/Session"
+                        },
+                        "prepared": {
+                          "type": "boolean"
+                        },
+                        "preparation": {
+                          "oneOf": [
+                            {
+                              "type": "null"
+                            },
+                            {
+                              "type": "object",
+                              "additionalProperties": true
+                            }
+                          ]
                         }
                       },
                       "required": [
-                        "session"
+                        "session",
+                        "prepared"
                       ]
                     },
                     "meta": {

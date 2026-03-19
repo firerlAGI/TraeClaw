@@ -1,8 +1,8 @@
 {
   "id": "trae-ide",
-  "name": "Trae IDE",
+  "name": "TraeClaw",
   "version": "0.2.1",
-  "description": "Delegate IDE tasks from OpenClaw to a local TraeAPI instance that drives the Trae desktop app.",
+  "description": "Delegate IDE tasks from OpenClaw to a local TraeClaw instance that drives the Trae desktop app.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
@@ -41,7 +41,7 @@
   },
   "uiHints": {
     "baseUrl": {
-      "label": "TraeAPI Base URL",
+      "label": "TraeClaw Base URL",
       "placeholder": "http://127.0.0.1:8787"
     },
     "token": {
@@ -50,15 +50,15 @@
       "placeholder": "Optional"
     },
     "autoStart": {
-      "label": "Auto-start TraeAPI"
+      "label": "Auto-start TraeClaw"
     },
     "quickstartCommand": {
       "label": "Quickstart Command",
-      "placeholder": "\"C:\\path\\to\\TraeAPI\\start-traeapi.cmd\" or \"/Users/you/TraeAPI/start-traeapi.command\""
+      "placeholder": "\"C:\\path\\to\\TraeClaw\\start-traeapi.cmd\" or \"/Users/you/TraeClaw/start-traeapi.command\""
     },
     "quickstartCwd": {
       "label": "Quickstart Working Directory",
-      "placeholder": "C:\\path\\to\\TraeElectronAPI or /Users/you/TraeAPI"
+      "placeholder": "C:\\path\\to\\TraeClaw or /Users/you/TraeClaw"
     },
     "readyTimeoutMs": {
       "label": "Ready Timeout (ms)"

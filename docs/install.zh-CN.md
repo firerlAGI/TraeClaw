@@ -1,6 +1,6 @@
 # OpenClaw 用户安装指南
 
-这份说明假设你的目标是让 OpenClaw 通过 TraeAPI 把 Trae 当成 IDE 工具来调用。
+这份说明假设你的目标是让 OpenClaw 通过 TraeClaw 把 Trae 当成 IDE 工具来调用。
 
 ## 推荐路径
 
@@ -9,14 +9,14 @@
 1. 安装 Node.js 22 或更高版本。
 2. 克隆或下载本仓库。
 3. 执行 `npm install`。
-4. 启动 TraeAPI：
+4. 启动 TraeClaw：
    - Windows：双击 [start-traeapi.cmd](../start-traeapi.cmd)
    - macOS：双击 [start-traeapi.command](../start-traeapi.command)
 5. 按 [../integrations/openclaw-trae-plugin](../integrations/openclaw-trae-plugin/README.md) 把插件加载进 OpenClaw。
 6. 重启 OpenClaw Gateway。
 7. 在 OpenClaw 里调用 `trae_status` 或 `trae_delegate`。
 
-首次启动时，TraeAPI 会尽量自动完成这些事：
+首次启动时，TraeClaw 会尽量自动完成这些事：
 
 - 根据 [`.env.example`](../.env.example) 创建 `.env`
 - 自动识别本地 Trae 可执行文件
@@ -52,7 +52,7 @@ bash ./scripts/install-openclaw-integration.sh
 如果你的目标是让用户后续直接通过 OpenClaw 收插件更新，推荐把插件作为 npm 包安装：
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 ```
 
@@ -64,7 +64,7 @@ openclaw plugins update trae-ide
 
 要注意两点：
 
-- 这个 npm 包会同时分发 OpenClaw 插件和完整 TraeAPI runtime
+- 这个 npm 包会同时分发 OpenClaw 插件和完整 TraeClaw runtime
 - 用户执行 `openclaw plugins update trae-ide` 时，插件和网关能力会一起更新
 
 如果希望插件自动拉起包内 runtime，再补上：

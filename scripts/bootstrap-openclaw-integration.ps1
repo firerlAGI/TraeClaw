@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-  [string]$RepoZipUrl = "https://github.com/firerlAGI/TraeElectronAPI/archive/refs/heads/main.zip",
+  [string]$RepoZipUrl = "https://github.com/firerlAGI/TraeClaw/archive/refs/heads/main.zip",
   [string]$InstallRoot = "",
   [string]$OpenClawCommand = "openclaw",
   [string]$BaseUrl = "http://127.0.0.1:8787"
@@ -11,15 +11,15 @@ $ErrorActionPreference = "Stop"
 
 function Write-Step {
   param([string]$Message)
-  Write-Host "[TraeAPI] $Message"
+  Write-Host "[TraeClaw] $Message"
 }
 
 if ([string]::IsNullOrWhiteSpace($InstallRoot)) {
-  $InstallRoot = Join-Path $env:USERPROFILE ".openclaw\tools\TraeElectronAPI"
+  $InstallRoot = Join-Path $env:USERPROFILE ".openclaw\tools\TraeClaw"
 }
 
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("traeapi-bootstrap-" + [Guid]::NewGuid().ToString("N"))
-$archivePath = Join-Path $tempRoot "TraeElectronAPI.zip"
+$archivePath = Join-Path $tempRoot "TraeClaw.zip"
 $extractRoot = Join-Path $tempRoot "extract"
 
 try {

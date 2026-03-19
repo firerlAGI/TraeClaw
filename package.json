@@ -1,15 +1,15 @@
 {
-  "name": "trae-electron-api",
+  "name": "traeclaw",
   "version": "0.2.1",
   "private": true,
   "description": "Local HTTP bridge and OpenClaw tool integration for Trae powered by CDP and DOM automation.",
-  "homepage": "https://github.com/firerlAGI/TraeElectronAPI",
+  "homepage": "https://github.com/firerlAGI/TraeClaw",
   "repository": {
     "type": "git",
-    "url": "https://github.com/firerlAGI/TraeElectronAPI.git"
+    "url": "https://github.com/firerlAGI/TraeClaw.git"
   },
   "bugs": {
-    "url": "https://github.com/firerlAGI/TraeElectronAPI/issues"
+    "url": "https://github.com/firerlAGI/TraeClaw/issues"
   },
   "keywords": [
     "trae",

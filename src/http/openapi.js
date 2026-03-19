@@ -5,10 +5,10 @@ function buildOpenApiDocument(options = {}) {
   return {
     openapi: "3.1.0",
     info: {
-      title: "TraeAPI HTTP API",
+      title: "TraeClaw HTTP API",
       version: packageJson.version,
       description:
-        "Local HTTP bridge for Trae desktop backed by Chrome DevTools Protocol and DOM automation. This service is loopback-only and is not an official Trae API."
+        "Local HTTP bridge for Trae desktop backed by Chrome DevTools Protocol and DOM automation. TraeClaw is loopback-only and is not an official Trae API."
     },
     servers: [
       {
@@ -28,6 +28,10 @@ function buildOpenApiDocument(options = {}) {
       {
         name: "messages",
         description: "Prompt submission and response streaming"
+      },
+      {
+        name: "automation",
+        description: "Direct automation actions against the attached Trae window"
       }
     ],
     components: {
@@ -204,6 +208,17 @@ function buildOpenApiDocument(options = {}) {
           },
           required: ["content"]
         },
+        ModeSwitchRequest: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            mode: {
+              type: "string",
+              enum: ["solo", "ide"]
+            }
+          },
+          required: ["mode"]
+        },
         MessageEvent: {
           type: "object",
           additionalProperties: true,
@@ -252,6 +267,39 @@ function buildOpenApiDocument(options = {}) {
             }
           },
           required: ["status", "requestId", "channel", "startedAt", "finishedAt", "events", "chunks", "response"]
+        },
+        ModeSwitchResult: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            status: { type: "string" },
+            requestId: { type: "string" },
+            channel: { type: "string" },
+            startedAt: { type: "string", format: "date-time" },
+            finishedAt: { type: "string", format: "date-time" },
+            mode: {
+              type: "string",
+              enum: ["solo", "ide"]
+            },
+            previousMode: {
+              type: "string"
+            },
+            changed: { type: "boolean" },
+            target: {
+              oneOf: [
+                { type: "null" },
+                {
+                  type: "object",
+                  additionalProperties: true
+                }
+              ]
+            },
+            details: {
+              type: "object",
+              additionalProperties: true
+            }
+          },
+          required: ["status", "requestId", "channel", "startedAt", "finishedAt", "mode", "previousMode", "changed", "details"]
         }
       },
       responses: {
@@ -433,6 +481,46 @@ function buildOpenApiDocument(options = {}) {
                   },
                   example:
                     "event: open\ndata: {\"success\":true,\"code\":\"OK\",\"sessionId\":\"...\",\"sessionCreated\":true}\n\nevent: delta\ndata: {\"requestId\":\"...\",\"type\":\"replace\",\"chunk\":\"partial\"}\n\nevent: done\ndata: {\"success\":true,\"code\":\"OK\",\"requestId\":\"...\",\"sessionCreated\":true}\n\n"
+                }
+              }
+            },
+            default: { $ref: "#/components/responses/Error" }
+          }
+        }
+      },
+      "/v1/mode": {
+        post: {
+          tags: ["automation"],
+          summary: "Switch Trae between SOLO and IDE modes",
+          description: "Clicks the visible Trae mode tab and waits until the requested mode becomes active.",
+          parameters: [
+            { $ref: "#/components/parameters/RequestIdHeader" },
+            { $ref: "#/components/parameters/IdempotencyKeyHeader" }
+          ],
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/ModeSwitchRequest" }
+              }
+            }
+          },
+          responses: {
+            "200": {
+              description: "Mode switched",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      success: { type: "boolean", const: true },
+                      code: { type: "string", const: "OK" },
+                      data: { $ref: "#/components/schemas/ModeSwitchResult" },
+                      meta: { $ref: "#/components/schemas/ApiMeta" }
+                    },
+                    required: ["success", "code", "data", "meta"]
+                  }
                 }
               }
             },

@@ -1,10 +1,10 @@
 # OpenClaw 集成说明
 
-这份说明面向希望让 OpenClaw 通过 TraeAPI 把 Trae 当成 IDE 工具使用的用户。
+这份说明面向希望让 OpenClaw 通过 TraeClaw 把 Trae 当成 IDE 工具使用的用户。
 
 目标链路：
 
-`OpenClaw agent -> trae_delegate -> TraeAPI -> Trae 桌面端`
+`OpenClaw agent -> trae_delegate -> TraeClaw -> Trae 桌面端`
 
 这不是模型提供方接入。OpenClaw 继续使用自己的 LLM，Trae 只是一个可调用的 IDE 工具。
 
@@ -15,7 +15,7 @@
 - 本仓库已经在本地。
 - Trae 支持 `--remote-debugging-port=<port>`。
 
-## 1. 启动 TraeAPI
+## 1. 启动 TraeClaw
 
 推荐路径：
 
@@ -45,14 +45,14 @@ curl http://127.0.0.1:8787/ready
 
 ## 2. 加载 OpenClaw 插件
 
-如果 OpenClaw 和 TraeAPI 都在本地源码目录里，最简单的配置方式是：
+如果 OpenClaw 和 TraeClaw 都在本地源码目录里，最简单的配置方式是：
 
 ```json
 {
   "plugins": {
     "load": {
       "paths": [
-        "/path/to/TraeAPI/integrations/openclaw-trae-plugin"
+        "/path/to/TraeClaw/integrations/openclaw-trae-plugin"
       ]
     },
     "entries": {
@@ -61,8 +61,8 @@ curl http://127.0.0.1:8787/ready
         "config": {
           "baseUrl": "http://127.0.0.1:8787",
           "autoStart": true,
-          "quickstartCommand": "\"/path/to/TraeAPI/start-traeapi.command\"",
-          "quickstartCwd": "/path/to/TraeAPI"
+          "quickstartCommand": "\"/path/to/TraeClaw/start-traeapi.command\"",
+          "quickstartCwd": "/path/to/TraeClaw"
         }
       }
     }
@@ -70,9 +70,9 @@ curl http://127.0.0.1:8787/ready
 }
 ```
 
-Windows 用户可以继续使用 `"C:\path\to\TraeAPI\start-traeapi.cmd"` 作为 `quickstartCommand`。如果路径里可能有空格，保留外层引号。
+Windows 用户可以继续使用 `"C:\path\to\TraeClaw\start-traeapi.cmd"` 作为 `quickstartCommand`。如果路径里可能有空格，保留外层引号。
 
-如果 TraeAPI 开启了 `TRAE_GATEWAY_TOKEN`，再加上：
+如果 TraeClaw 开启了 `TRAE_GATEWAY_TOKEN`，再加上：
 
 ```json
 {
@@ -99,7 +99,7 @@ Windows 用户可以继续使用 `"C:\path\to\TraeAPI\start-traeapi.cmd"` 作为
 如果你希望用户后续通过 OpenClaw 直接收插件更新，可以改用 npm 安装：
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 ```
 
@@ -120,7 +120,7 @@ openclaw plugins update trae-ide
 
 注意：
 
-- npm 包内已经自带完整 TraeAPI runtime
+- npm 包内已经自带完整 TraeClaw runtime
 - 用户执行 `openclaw plugins update trae-ide` 时，插件和网关能力会一起更新
 - 如果你显式配置了 `quickstartCommand`，会覆盖包内默认 runtime 启动入口
 
@@ -214,7 +214,7 @@ openclaw plugins info trae-ide
 
 插件会自动：
 
-- 启动或唤起 TraeAPI
+- 启动或唤起 TraeClaw
 - 新建一个 Trae 对话
 - 把 `/Trae` 后面的任务直接交给 Trae
 
@@ -232,10 +232,10 @@ agent 里看不到 `trae_status` 或 `trae_delegate`
 
 `/ready` 不是 true
 
-- 说明 TraeAPI 能连到 Trae，但当前页面不处于可自动化状态
+- 说明 TraeClaw 能连到 Trae，但当前页面不处于可自动化状态
 - 最省事的恢复方式通常是：
   1. 关闭当前 Trae 窗口
-  2. 重新启动 TraeAPI
+  2. 重新启动 TraeClaw
   3. 让它重新拉起带调试端口的 Trae
 
 Trae 打开了，但还停在不对的页面

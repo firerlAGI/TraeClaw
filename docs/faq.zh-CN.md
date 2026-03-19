@@ -2,23 +2,23 @@
 
 ## 这是 Trae 官方 API 吗？
 
-不是。TraeAPI 是构建在 Trae Electron 界面之上的本地桌面桥接服务。
+不是。TraeClaw 是构建在 Trae Electron 界面之上的本地桌面桥接服务。
 
 ## 它是在本地运行还是云端运行？
 
-本地运行。TraeAPI 启动在你的机器上，并直接连接本机的 Trae 窗口。
+本地运行。TraeClaw 启动在你的机器上，并直接连接本机的 Trae 窗口。
 
 ## 为什么需要 remote debugging port？
 
-因为 TraeAPI 是通过 Chrome DevTools Protocol 自动化 Trae 渲染进程，并从应用窗口里读取 DOM 内容。
+因为 TraeClaw 是通过 Chrome DevTools Protocol 自动化 Trae 渲染进程，并从应用窗口里读取 DOM 内容。
 
 ## 为什么 OpenClaw 能看到插件，却还是不能调用 `trae_delegate`？
 
 OpenClaw 可能会把工具显示在 catalog 里，但如果没有加入 `tools.alsoAllow`，agent 运行时仍然会拦截这个工具。请直接以插件示例配置为准。
 
-## 为什么 TraeAPI 会额外打开一个 Trae 窗口？
+## 为什么 TraeClaw 会额外打开一个 Trae 窗口？
 
-如果你当前的 Trae 窗口不适合自动化，TraeAPI 会启动一个带独立 profile 的专用窗口，保证接口更稳定。
+如果你当前的 Trae 窗口不适合自动化，TraeClaw 会启动一个带独立 profile 的专用窗口，保证接口更稳定。
 
 ## 为什么这个专用窗口还会让我重新登录？
 
@@ -26,7 +26,7 @@ OpenClaw 可能会把工具显示在 catalog 里，但如果没有加入 `tools.
 
 ## 为什么有些回复前面会带 `SOLO Coder` 之类的前缀？
 
-因为这些前缀本来就是 Trae 界面渲染出来的内容。TraeAPI 返回的是 Trae UI 上看到的文本，不是底层隐藏响应对象。
+因为这些前缀本来就是 Trae 界面渲染出来的内容。TraeClaw 返回的是 Trae UI 上看到的文本，不是底层隐藏响应对象。
 
 ## 为什么我要求“精确输出”，结果还是会多出一些字？
 

@@ -2,23 +2,23 @@
 
 ## Is this an official Trae API?
 
-No. TraeAPI is a local desktop bridge built on top of Trae's Electron UI.
+No. TraeClaw is a local desktop bridge built on top of Trae's Electron UI.
 
 ## Does it run locally or in the cloud?
 
-Locally. TraeAPI starts on your machine and talks to your local Trae window.
+Locally. TraeClaw starts on your machine and talks to your local Trae window.
 
 ## Why does it need a remote debugging port?
 
-Because TraeAPI uses the Chrome DevTools Protocol to automate the Trae renderer and read DOM content from the app window.
+Because TraeClaw uses the Chrome DevTools Protocol to automate the Trae renderer and read DOM content from the app window.
 
 ## Why can OpenClaw see the plugin but still fail to call `trae_delegate`?
 
 OpenClaw may expose the tool in the catalog but still block agent use if the tool is not added to `tools.alsoAllow`. Use the plugin example config as the baseline.
 
-## Why does TraeAPI open another Trae window?
+## Why does TraeClaw open another Trae window?
 
-If your current window is not automation-ready, TraeAPI can start a dedicated Trae window with its own profile so the API stays stable.
+If your current window is not automation-ready, TraeClaw can start a dedicated Trae window with its own profile so the API stays stable.
 
 ## Why does the dedicated window ask me to log in again?
 
@@ -26,7 +26,7 @@ Profile seeding is best-effort. If local profile files are locked or incomplete,
 
 ## Why do some replies include prefixes like `SOLO Coder`?
 
-Those prefixes come from Trae's own UI output. TraeAPI returns what the Trae interface renders, not an internal hidden response object.
+Those prefixes come from Trae's own UI output. TraeClaw returns what the Trae interface renders, not an internal hidden response object.
 
 ## Why does an "exact output" prompt still return extra text sometimes?
 
@@ -36,7 +36,7 @@ Trae may wrap your requested output with its own assistant style or task framing
 
 `/ready` means the gateway can reach a usable Trae page and required selectors are available. It does not guarantee that the next task will be semantically correct.
 
-## Can I use TraeAPI without OpenClaw?
+## Can I use TraeClaw without OpenClaw?
 
 Yes, but that is no longer the primary product path. The intended path is OpenClaw calling Trae through the native plugin.
 

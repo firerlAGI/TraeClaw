@@ -2,11 +2,11 @@
 
 [English](README.en.md) | [中文](README.md)
 
-This plugin lets OpenClaw use the local Trae desktop app as an IDE tool through TraeAPI.
+This plugin lets OpenClaw use the local Trae desktop app as an IDE tool through TraeClaw.
 
 Target flow:
 
-`OpenClaw -> trae_delegate -> TraeAPI -> Trae desktop app`
+`OpenClaw -> trae_delegate -> TraeClaw -> Trae desktop app`
 
 This is not a model-provider integration. OpenClaw keeps using its own LLM. The plugin only delegates IDE work to Trae.
 
@@ -15,7 +15,7 @@ This is not a model-provider integration. OpenClaw keeps using its own LLM. The 
 If you want users to receive future plugin updates through OpenClaw, install the npm distribution:
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 ```
 
@@ -27,7 +27,7 @@ openclaw plugins update trae-ide
 
 Important:
 
-- the npm package now bundles the full TraeAPI runtime
+- the npm package now bundles the full TraeClaw runtime
 - when users run `openclaw plugins update trae-ide`, the plugin and gateway capabilities update together
 - with `autoStart` enabled, the plugin can launch the bundled quickstart entry point without a separate local checkout
 
@@ -44,7 +44,7 @@ Important:
 
 Type `/Trae` directly in the OpenClaw chat box. The plugin will:
 
-1. Ensure TraeAPI is running
+1. Ensure TraeClaw is running
 2. Create a fresh Trae chat
 3. Delegate the task text after `/Trae` directly to Trae
 4. Return only Trae's final reply by default
@@ -63,7 +63,7 @@ Example:
 
 ## Recommended Setup
 
-1. Start TraeAPI first.
+1. Start TraeClaw first.
    - Windows: `start-traeapi.cmd`
    - macOS: `start-traeapi.command`
 2. Load this plugin from a local path in OpenClaw.

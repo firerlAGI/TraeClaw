@@ -2,7 +2,7 @@
 set -euo pipefail
 
 write_step() {
-  printf '[TraeAPI] %s\n' "$1"
+  printf '[TraeClaw] %s\n' "$1"
 }
 
 quote_shell_path() {
@@ -147,7 +147,7 @@ fi
 set_config_value "plugins.entries.trae-ide.config.quickstartCommand" "$quickstart_command_config"
 set_config_value "plugins.entries.trae-ide.config.quickstartCwd" "$resolved_repo_root"
 
-tool_json='["trae-ide","trae_status","trae_new_chat","trae_delegate"]'
+tool_json='["trae-ide","trae_status","trae_new_chat","trae_open_project","trae_switch_mode","trae_delegate"]'
 root_policy_mode="$(update_tool_policy "tools.allow" "tools.alsoAllow" "$tool_json")"
 write_step "Updated root tool policy via tools.${root_policy_mode}."
 
@@ -155,7 +155,7 @@ agents_raw="$(get_config_text "agents.list" || true)"
 agent_count="$(AGENTS_RAW="$agents_raw" node -e 'const raw = process.env.AGENTS_RAW || ""; if (!raw) { process.stdout.write("0"); process.exit(0); } try { const parsed = JSON.parse(raw); process.stdout.write(String(Array.isArray(parsed) ? parsed.length : 0)); } catch { process.stdout.write("0"); }')"
 if [[ "$agent_count" =~ ^[0-9]+$ ]] && [[ "$agent_count" -gt 0 ]]; then
   for ((i = 0; i < agent_count; i += 1)); do
-    mode="$(update_tool_policy "agents.list[$i].tools.allow" "agents.list[$i].tools.alsoAllow" '["trae_status","trae_new_chat","trae_delegate"]')"
+    mode="$(update_tool_policy "agents.list[$i].tools.allow" "agents.list[$i].tools.alsoAllow" '["trae_status","trae_new_chat","trae_open_project","trae_switch_mode","trae_delegate"]')"
     write_step "Updated agent[$i] tool policy via ${mode}."
   done
 fi
@@ -166,7 +166,7 @@ if [[ "$skip_validate" != "1" ]]; then
 fi
 
 printf '\n'
-printf 'TraeAPI + OpenClaw integration install completed.\n'
+printf 'TraeClaw + OpenClaw integration install completed.\n'
 printf -- '- Repo root: %s\n' "$resolved_repo_root"
 printf -- '- Plugin id: trae-ide\n'
 printf -- '- Base URL: %s\n' "$base_url"

@@ -2,7 +2,7 @@
   "plugins": {
     "load": {
       "paths": [
-        "/Users/you/TraeAPI/integrations/openclaw-trae-plugin"
+        "/Users/you/TraeClaw/integrations/openclaw-trae-plugin"
       ]
     },
     "entries": {
@@ -11,8 +11,8 @@
         "config": {
           "baseUrl": "http://127.0.0.1:8787",
           "autoStart": true,
-          "quickstartCommand": "\"/Users/you/TraeAPI/start-traeapi.command\"",
-          "quickstartCwd": "/Users/you/TraeAPI"
+          "quickstartCommand": "\"/Users/you/TraeClaw/start-traeapi.command\"",
+          "quickstartCwd": "/Users/you/TraeClaw"
         }
       }
     }

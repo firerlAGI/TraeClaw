@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "language": "zh-CN",
-  "product": "TraeAPI OpenClaw Integration",
-  "repo": "https://github.com/firerlAGI/TraeElectronAPI",
+  "product": "TraeClaw OpenClaw Integration",
+  "repo": "https://github.com/firerlAGI/TraeClaw",
   "preferredPlatform": "cross-platform",
   "pluginId": "trae-ide",
   "tools": [
@@ -10,9 +10,9 @@
     "trae_delegate"
   ],
   "source": {
-    "repoZipUrl": "https://github.com/firerlAGI/TraeElectronAPI/archive/refs/heads/main.zip",
-    "bootstrapScriptUrl": "https://raw.githubusercontent.com/firerlAGI/TraeElectronAPI/main/scripts/bootstrap-openclaw-integration.ps1",
-    "bootstrapScriptUrlMac": "https://raw.githubusercontent.com/firerlAGI/TraeElectronAPI/main/scripts/bootstrap-openclaw-integration.sh"
+    "repoZipUrl": "https://github.com/firerlAGI/TraeClaw/archive/refs/heads/main.zip",
+    "bootstrapScriptUrl": "https://raw.githubusercontent.com/firerlAGI/TraeClaw/main/scripts/bootstrap-openclaw-integration.ps1",
+    "bootstrapScriptUrlMac": "https://raw.githubusercontent.com/firerlAGI/TraeClaw/main/scripts/bootstrap-openclaw-integration.sh"
   },
   "install": {
     "preferredScript": "scripts/bootstrap-openclaw-integration.ps1",

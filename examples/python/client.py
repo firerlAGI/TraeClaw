@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Minimal TraeAPI example client using only the Python standard library.
+Minimal TraeClaw example client using only the Python standard library.
 
 Usage:
   python examples/python/client.py

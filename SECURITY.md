@@ -2,7 +2,7 @@
 
 ## Scope
 
-TraeAPI is a local desktop bridge. It is designed for loopback or trusted local-network usage, not direct public Internet exposure.
+TraeClaw is a local desktop bridge. It is designed for loopback or trusted local-network usage, not direct public Internet exposure.
 
 ## Supported Versions
 

@@ -3,7 +3,9 @@ const {
   createTraeApiClient,
   formatDelegateToolResult,
   formatNewChatToolResult,
+  formatOpenProjectToolResult,
   formatStatusToolResult,
+  formatSwitchModeToolResult,
   resolvePluginRuntimeConfig
 } = require("./lib/traeapi-client");
 
@@ -59,7 +61,7 @@ function register(api) {
 
   api.registerTool({
     name: "trae_status",
-    description: "Check whether the local TraeAPI bridge is reachable and whether Trae automation is ready.",
+    description: "Check whether the local TraeClaw bridge is reachable and whether Trae automation is ready.",
     parameters: {
       type: "object",
       additionalProperties: false,
@@ -101,16 +103,71 @@ function register(api) {
     }
   });
 
+  api.registerTool({
+    name: "trae_open_project",
+    description: "Open a specific local project folder in Trae so later Trae tasks run against the intended workspace.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        projectPath: {
+          type: "string",
+          minLength: 1
+        }
+      },
+      required: ["projectPath"]
+    },
+    async execute(_id, params = {}) {
+      const client = getClient();
+      const result = await client.openProject({
+        projectPath: params.projectPath
+      });
+      return buildToolContent(formatOpenProjectToolResult(result));
+    }
+  });
+
+  api.registerTool({
+    name: "trae_switch_mode",
+    description: "Switch Trae between SOLO and IDE modes while keeping the current project window attached.",
+    parameters: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        mode: {
+          type: "string",
+          enum: ["solo", "ide"]
+        },
+        allowAutoStart: {
+          type: "boolean",
+          default: true
+        }
+      },
+      required: ["mode"]
+    },
+    async execute(_id, params = {}) {
+      const client = getClient();
+      const result = await client.switchMode({
+        mode: params.mode,
+        allowAutoStart: params.allowAutoStart !== false
+      });
+      return buildToolContent(formatSwitchModeToolResult(result));
+    }
+  });
+
   api.registerTool(
     {
       name: "trae_delegate",
       description:
-        "Delegate an IDE task to the local Trae desktop app through TraeAPI. Use this when you want Trae itself to inspect or modify the open project.",
+        "Delegate an IDE task to the local Trae desktop app through TraeClaw. If projectPath is provided, Trae will switch to that local project before running the task.",
       parameters: {
         type: "object",
         additionalProperties: false,
         properties: {
           task: {
+            type: "string",
+            minLength: 1
+          },
+          projectPath: {
             type: "string",
             minLength: 1
           },
@@ -132,6 +189,7 @@ function register(api) {
         const client = getClient();
         const result = await client.delegateTask({
           task: params.task,
+          projectPath: params.projectPath,
           sessionId: params.sessionId,
           allowAutoStart: params.allowAutoStart !== false
         });
@@ -188,7 +246,7 @@ function register(api) {
 
 module.exports = {
   id: PLUGIN_ID,
-  name: "Trae IDE",
+  name: "TraeClaw",
   buildTraeSlashUsage,
   parseTraeSlashArgs,
   register

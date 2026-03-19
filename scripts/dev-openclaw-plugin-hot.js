@@ -50,7 +50,7 @@ function buildOpenClawDevConfig(layout, options = {}) {
         {
           id: "main",
           tools: {
-            alsoAllow: ["trae_status", "trae_new_chat", "trae_delegate"]
+            alsoAllow: ["trae_status", "trae_new_chat", "trae_open_project", "trae_switch_mode", "trae_delegate"]
           }
         }
       ]
@@ -71,7 +71,7 @@ function buildDevHotReadme(layout) {
     "",
     "Important:",
     "- Point OpenClaw at the hot plugin dir, not the source plugin dir.",
-    "- Keep TraeAPI quickstartCommand and quickstartCwd pointing at the development repository root.",
+    "- Keep TraeClaw quickstartCommand and quickstartCwd pointing at the development repository root.",
     "- If OpenClaw does not auto-reload changed plugin code, restart OpenClaw Gateway after sync."
   ].join("\n");
 }
@@ -119,7 +119,7 @@ function syncHotPluginDirectory(options = {}) {
 
 function formatSummary(summary, reason = "manual") {
   return [
-    `[TraeAPI] Hot plugin sync completed (${reason})`,
+    `[TraeClaw] Hot plugin sync completed (${reason})`,
     `- Source plugin dir: ${summary.sourcePluginDir}`,
     `- Hot plugin dir: ${summary.hotPluginDir}`,
     `- OpenClaw config template: ${summary.generatedConfigPath}`,
@@ -138,7 +138,7 @@ function watchHotPluginDirectory(layout) {
         const summary = syncHotPluginDirectory({ layout });
         console.log(formatSummary(summary, reason));
       } catch (error) {
-        console.error(`[TraeAPI] Hot plugin sync failed: ${error.message}`);
+        console.error(`[TraeClaw] Hot plugin sync failed: ${error.message}`);
       }
     }, 120);
   };
@@ -149,7 +149,7 @@ function watchHotPluginDirectory(layout) {
   });
 
   watcher.on("error", (error) => {
-    console.error(`[TraeAPI] Hot plugin watcher error: ${error.message}`);
+    console.error(`[TraeClaw] Hot plugin watcher error: ${error.message}`);
   });
 
   return watcher;
@@ -171,14 +171,14 @@ async function main(argv = process.argv.slice(2)) {
     return;
   }
 
-  console.log("[TraeAPI] Watching source plugin directory for changes...");
+  console.log("[TraeClaw] Watching source plugin directory for changes...");
   watchHotPluginDirectory(layout);
   await new Promise(() => {});
 }
 
 if (require.main === module) {
   main().catch((error) => {
-    console.error(`[TraeAPI] ${error.message}`);
+    console.error(`[TraeClaw] ${error.message}`);
     process.exit(1);
   });
 }

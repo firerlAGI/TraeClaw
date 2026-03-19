@@ -2,11 +2,11 @@
 
 [中文](README.md) | [English](README.en.md)
 
-这个插件让 OpenClaw 可以通过 TraeAPI 调用本地 Trae 桌面端，把 Trae 当作一个 IDE 工具使用。
+这个插件让 OpenClaw 可以通过 TraeClaw 调用本地 Trae 桌面端，把 Trae 当作一个 IDE 工具使用。
 
 目标链路：
 
-`OpenClaw -> trae_delegate -> TraeAPI -> Trae 桌面端`
+`OpenClaw -> trae_delegate -> TraeClaw -> Trae 桌面端`
 
 这不是模型提供方接入。OpenClaw 继续使用自己的 LLM，这个插件只负责把 IDE 工作委托给 Trae。
 
@@ -15,7 +15,7 @@
 如果你希望后续通过 OpenClaw 直接收插件更新，优先用 npm 安装版：
 
 ```bash
-openclaw plugins install traeelectronapi
+openclaw plugins install traeclaw
 openclaw plugins enable trae-ide
 ```
 
@@ -27,7 +27,7 @@ openclaw plugins update trae-ide
 
 注意：
 
-- npm 包内已经包含完整 TraeAPI runtime
+- npm 包内已经包含完整 TraeClaw runtime
 - 用户执行 `openclaw plugins update trae-ide` 时，插件和网关能力会一起更新
 - 如果启用 `autoStart`，插件会优先拉起包内自带的 quickstart 入口，不需要额外本地仓库
 
@@ -44,7 +44,7 @@ openclaw plugins update trae-ide
 
 在 OpenClaw 对话输入框里直接输入 `/Trae`，插件会：
 
-1. 自动确保 TraeAPI 已启动
+1. 自动确保 TraeClaw 已启动
 2. 新建一个 Trae 对话
 3. 把你在 `/Trae` 后面的任务直接交给 Trae 执行
 4. 默认只把 Trae 的最终回复回传到 OpenClaw
@@ -65,7 +65,7 @@ openclaw plugins update trae-ide
 
 ## 推荐接入方式
 
-1. 先启动 TraeAPI。
+1. 先启动 TraeClaw。
    - Windows：`start-traeapi.cmd`
    - macOS：`start-traeapi.command`
 2. 在 OpenClaw 中从本地路径加载本插件。
