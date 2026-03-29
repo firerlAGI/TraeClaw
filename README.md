@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="TRAE%20Logo%20Artworks_greenonwhite.svg" alt="TRAE logo" width="420" />
+</p>
+
 # TraeClaw
 
 ![Preview](https://img.shields.io/badge/status-preview-orange)
